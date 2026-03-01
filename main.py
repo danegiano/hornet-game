@@ -19,6 +19,9 @@ GRAVITY = 0.8
 JUMP_POWER = -15
 GROUND_Y = SCREEN_HEIGHT - 60  # Temporary ground line
 
+HOVER_MAX = 60        # Frames of hover time (~1 second at 60fps)
+HOVER_GRAVITY = 0.15  # Much slower fall while hovering
+
 YELLOW = (255, 220, 50)
 DARK_YELLOW = (200, 170, 0)
 
@@ -33,6 +36,10 @@ class Player:
         self.on_ground = False
         # facing_right tracks which way the player is looking
         self.facing_right = True
+        # hover_fuel is how many frames of hover the player has left
+        self.hover_fuel = HOVER_MAX
+        # is_hovering is True while the player is actively slowing their fall
+        self.is_hovering = False
 
     def update(self, keys):
         # --- Horizontal movement ---
@@ -43,14 +50,25 @@ class Player:
             self.rect.x -= PLAYER_SPEED
             self.facing_right = False
 
-        # --- Jumping ---
-        if (keys[pygame.K_SPACE]) and self.on_ground:
+        # --- Jump ---
+        if keys[pygame.K_SPACE] and self.on_ground:
             self.vel_y = JUMP_POWER  # A negative value shoots the player upward
             self.on_ground = False
 
-        # --- Gravity ---
-        # Every frame, gravity pulls the player downward
-        self.vel_y += GRAVITY
+        # --- Hover (hold space while in the air) ---
+        # All four conditions must be true to hover:
+        #   1. Holding space
+        #   2. Not on the ground (in the air)
+        #   3. Have hover fuel left
+        #   4. Falling (vel_y > 0) — hover doesn't activate on the way up
+        if keys[pygame.K_SPACE] and not self.on_ground and self.hover_fuel > 0 and self.vel_y > 0:
+            self.is_hovering = True
+            self.hover_fuel -= 1         # Drain 1 frame of fuel
+            self.vel_y += HOVER_GRAVITY  # Slow fall instead of normal gravity
+        else:
+            self.is_hovering = False
+            self.vel_y += GRAVITY        # Normal gravity applies
+
         self.rect.y += self.vel_y
 
         # --- Temporary ground collision ---
@@ -58,6 +76,9 @@ class Player:
             self.rect.bottom = GROUND_Y  # Snap the player back to the ground
             self.vel_y = 0               # Stop falling
             self.on_ground = True
+            self.hover_fuel = HOVER_MAX  # Refill hover fuel on landing
+        else:
+            self.on_ground = False
 
     def draw(self, screen):
         # Draw the yellow body rectangle
