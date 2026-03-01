@@ -9,9 +9,24 @@ from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
 from src.systems.coins import CoinManager
+from src.systems.powers import ISLAND_POWER
 from src.save_data import SaveData
 from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
+
+
+def apply_powers(player, save_data):
+    """Apply unlocked powers to the player based on save data."""
+    player.has_double_jump = save_data.has_power("double_jump")
+    player.has_dash = save_data.has_power("dash")
+    player.has_wall_climb = save_data.has_power("wall_climb")
+    if save_data.has_power("shield"):
+        player.has_shield = True
+        player.shield_active = True
+    if save_data.has_power("stinger_upgrade"):
+        player.stinger_damage = 2
+    # Set HP based on upgrades the player has bought
+    player.hp = save_data.get_max_hp()
 
 
 def main():
@@ -67,7 +82,7 @@ def main():
         coin_manager = CoinManager()
         platforms, enemies = create_level(current_level)
         player = Player(50, 400)
-        player.hp = PLAYER_MAX_HP
+        apply_powers(player, save_data)  # Give the player any powers they've unlocked
         camera = Camera()
         bg = ParallaxBackground(current_level)
         # Spawn boss on level 3 (index 2)
@@ -174,6 +189,11 @@ def main():
 
             # Check for level complete or boss defeat
             if current_level == 2 and boss and not boss.alive:
+                # Unlock the power for this island's boss
+                power = ISLAND_POWER.get(0)  # island 0 for now, will change with island map
+                if power:
+                    save_data.unlock_power(power)
+                    save_data.save()
                 game_state = STATE_VICTORY
                 stop_music()
                 if hover_channel and hover_channel.get_busy():

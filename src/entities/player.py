@@ -51,18 +51,83 @@ class Player:
         self.invincible_timer = 0
         self.just_jumped = False
 
+        # --- Powers (set by game.py based on save data) ---
+        self.has_double_jump = False
+        self.has_dash = False
+        self.has_wall_climb = False  # TODO: wall climb needs platform collision rework
+        self.has_shield = False
+        self.stinger_damage = 1  # becomes 2 with stinger upgrade
+
+        # Double jump tracking
+        self.can_double_jump = False  # True when in air and hasn't double-jumped yet
+        self.prev_jump_pressed = False  # tracks last frame's jump key state
+
+        # Dash state
+        self.dashing = False
+        self.dash_timer = 0
+        self.dash_cooldown = 0
+        self.dash_speed = 15
+        self.dash_duration = 8   # frames the dash lasts
+        self.dash_cooldown_max = 60  # 1 second at 60fps before you can dash again
+        self.dash_invincible = False
+        self.prev_dash_pressed = False  # tracks last frame's dash key state
+
+        # Shield state
+        self.shield_active = False
+        self.shield_recharge_timer = 0
+        self.shield_recharge_max = 300  # 5 seconds at 60fps to recharge
+
     def update(self, keys, platforms):
         # Invincibility timer
         if self.invincible_timer > 0:
             self.invincible_timer -= 1
 
-        # --- Horizontal movement ---
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.rect.x += PLAYER_SPEED
-            self.facing_right = True
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.rect.x -= PLAYER_SPEED
-            self.facing_right = False
+        # --- Shield recharge ---
+        if self.has_shield and not self.shield_active:
+            self.shield_recharge_timer -= 1
+            if self.shield_recharge_timer <= 0:
+                self.shield_active = True
+
+        # --- Dash cooldown ---
+        if self.dash_cooldown > 0:
+            self.dash_cooldown -= 1
+
+        # --- Track jump & dash key presses (for "just pressed" detection) ---
+        jump_pressed = keys[pygame.K_UP] or keys[pygame.K_SPACE]
+        jump_just_pressed = jump_pressed and not self.prev_jump_pressed
+        self.prev_jump_pressed = jump_pressed
+
+        dash_pressed = keys[pygame.K_LSHIFT] or keys[pygame.K_c]
+        dash_just_pressed = dash_pressed and not self.prev_dash_pressed
+        self.prev_dash_pressed = dash_pressed
+
+        # --- Dash start ---
+        if (dash_just_pressed and self.has_dash
+                and self.dash_cooldown <= 0 and not self.dashing):
+            self.dashing = True
+            self.dash_timer = self.dash_duration
+            self.dash_cooldown = self.dash_cooldown_max
+            self.dash_invincible = True
+
+        # --- While dashing, skip normal movement/gravity ---
+        if self.dashing:
+            # Move in facing direction at dash speed
+            if self.facing_right:
+                self.rect.x += self.dash_speed
+            else:
+                self.rect.x -= self.dash_speed
+            self.dash_timer -= 1
+            if self.dash_timer <= 0:
+                self.dashing = False
+                self.dash_invincible = False
+        else:
+            # --- Normal horizontal movement ---
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.rect.x += PLAYER_SPEED
+                self.facing_right = True
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.rect.x -= PLAYER_SPEED
+                self.facing_right = False
 
         # Advance run animation when moving on ground
         moving = (keys[pygame.K_RIGHT] or keys[pygame.K_d] or keys[pygame.K_LEFT] or keys[pygame.K_a])
@@ -70,6 +135,8 @@ class Player:
         # Set animation mode
         if self.attacking:
             self.anim_mode = "attack"
+        elif self.dashing:
+            self.anim_mode = "run"  # reuse run sprite for dash
         elif moving and self.on_ground:
             self.anim_mode = "run"
         else:
@@ -94,26 +161,34 @@ class Player:
             self.rect.left = 0
 
         # --- Jump ---
-        if keys[pygame.K_SPACE] and self.on_ground:
+        self.just_jumped = False
+        if jump_pressed and self.on_ground:
+            # Normal ground jump
             self.vel_y = JUMP_POWER  # A negative value shoots the player upward
             self.on_ground = False
             self.just_jumped = True
-        else:
-            self.just_jumped = False
+            self.can_double_jump = True  # allow one double jump after leaving ground
+        elif (jump_just_pressed and not self.on_ground
+              and self.has_double_jump and self.can_double_jump):
+            # Double jump — one extra jump while in the air!
+            self.vel_y = JUMP_POWER
+            self.can_double_jump = False
+            self.just_jumped = True
 
         # --- Hover (hold space while in the air) ---
         # All four conditions must be true to hover:
-        #   1. Holding space
+        #   1. Holding space/up
         #   2. Not on the ground (in the air)
         #   3. Have hover fuel left
         #   4. Falling (vel_y > 0) — hover doesn't activate on the way up
-        if keys[pygame.K_SPACE] and not self.on_ground and self.hover_fuel > 0 and self.vel_y > 0:
-            self.is_hovering = True
-            self.hover_fuel -= 1         # Drain 1 frame of fuel
-            self.vel_y += HOVER_GRAVITY  # Slow fall instead of normal gravity
-        else:
-            self.is_hovering = False
-            self.vel_y += GRAVITY        # Normal gravity applies
+        if not self.dashing:
+            if jump_pressed and not self.on_ground and self.hover_fuel > 0 and self.vel_y > 0:
+                self.is_hovering = True
+                self.hover_fuel -= 1         # Drain 1 frame of fuel
+                self.vel_y += HOVER_GRAVITY  # Slow fall instead of normal gravity
+            else:
+                self.is_hovering = False
+                self.vel_y += GRAVITY        # Normal gravity applies
 
         self.rect.y += self.vel_y
 
@@ -127,6 +202,7 @@ class Player:
                     self.vel_y = 0
                     self.on_ground = True
                     self.hover_fuel = HOVER_MAX  # Refill hover fuel on landing
+                    self.can_double_jump = True   # Reset double jump on landing
                 elif self.vel_y < 0:  # Jumping up into the bottom of a platform
                     self.rect.top = platform.rect.bottom
                     self.vel_y = 0
@@ -156,6 +232,16 @@ class Player:
                 self.attack_rect.y = self.rect.top - 5
 
     def take_damage(self, amount):
+        # Dash makes you invincible — no damage at all
+        if self.dash_invincible:
+            return False
+
+        # Shield blocks one hit, then needs to recharge
+        if self.has_shield and self.shield_active:
+            self.shield_active = False
+            self.shield_recharge_timer = self.shield_recharge_max
+            return False
+
         if self.invincible_timer <= 0:
             self.hp -= amount
             self.invincible_timer = INVINCIBILITY_FRAMES
@@ -187,6 +273,17 @@ class Player:
 
         # Shift the player's draw position left by camera_x so it moves with the world
         draw_rect = self.rect.move(-camera_x, 0)
+
+        # --- Dash trail effect ---
+        # When dashing, draw a fading streak behind the player
+        if self.dashing:
+            trail_surface = pygame.Surface((draw_rect.width + 20, draw_rect.height), pygame.SRCALPHA)
+            trail_surface.fill((255, 255, 100, 80))  # Semi-transparent yellow streak
+            if self.facing_right:
+                screen.blit(trail_surface, (draw_rect.x - 20, draw_rect.y))
+            else:
+                screen.blit(trail_surface, (draw_rect.x, draw_rect.y))
+
         # Draw animated sprite
         if self.anim_mode == "attack":
             spr = self.spr_attack0 if self.facing_right else self.spr_attack0_flip
@@ -204,6 +301,16 @@ class Player:
         spr_y = draw_rect.centery - spr.get_height() // 2
         screen.blit(spr, (spr_x, spr_y))
 
+        # --- Shield bubble ---
+        # Draw a semi-transparent blue circle around the player when shield is active
+        if self.has_shield and self.shield_active:
+            shield_surface = pygame.Surface((draw_rect.width + 24, draw_rect.height + 24), pygame.SRCALPHA)
+            shield_radius = max(draw_rect.width, draw_rect.height) // 2 + 8
+            center = (shield_surface.get_width() // 2, shield_surface.get_height() // 2)
+            pygame.draw.circle(shield_surface, (80, 150, 255, 70), center, shield_radius)
+            pygame.draw.circle(shield_surface, (100, 180, 255, 140), center, shield_radius, 2)
+            screen.blit(shield_surface, (draw_rect.centerx - shield_surface.get_width() // 2,
+                                         draw_rect.centery - shield_surface.get_height() // 2))
 
         # --- Stinger triangle ---
         # The stinger pokes out from the front of the hornet

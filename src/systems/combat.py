@@ -7,10 +7,12 @@ def handle_combat(player, enemies, boss=None):
     death_positions = []  # (x, y, coin_count) for each enemy that dies
 
     # Player attack hits enemies
+    # Use stinger_damage from player (defaults to 1, becomes 2 with stinger upgrade)
+    damage = getattr(player, 'stinger_damage', 1)
     if player.attacking and player.attack_rect:
         for enemy in enemies:
             if enemy.alive and player.attack_rect.colliderect(enemy.rect):
-                enemy.take_damage(1)
+                enemy.take_damage(damage)
                 if not enemy.alive:
                     hit_events.append("enemy_die")
                     death_positions.append((enemy.rect.centerx, enemy.rect.y, 2))
@@ -18,7 +20,7 @@ def handle_combat(player, enemies, boss=None):
                     hit_events.append("hit_enemy")
         # Player attack hits boss
         if boss and boss.alive and player.attack_rect.colliderect(boss.rect):
-            boss.take_damage(1)
+            boss.take_damage(damage)
             if not boss.alive:
                 hit_events.append("boss_die")
                 death_positions.append((boss.rect.centerx, boss.rect.y, 5))
