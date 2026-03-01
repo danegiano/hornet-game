@@ -45,6 +45,7 @@ INVINCIBILITY_FRAMES = 60  # 1 second of invincibility after hit
 
 YELLOW = (255, 220, 50)
 DARK_YELLOW = (200, 170, 0)
+ORANGE = (230, 150, 30)
 
 
 class Player:
@@ -354,6 +355,135 @@ class Spider(Enemy):
                 self.lunge_target_x = player_x
 
 
+class WaspKing:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 120, 90)  # 3x player size
+        self.hp = 10
+        self.max_hp = 10
+        self.color = ORANGE
+        self.alive = True
+        self.vel_y = 0
+
+        # Attack pattern state
+        self.state = "idle"
+        self.state_timer = 0
+        self.pattern_index = 0
+        self.patterns = ["charge", "slam", "summon"]
+        self.idle_time = 60
+        self.speed_multiplier = 1.0
+
+        # Charge
+        self.charge_speed = 8
+        self.charge_target_x = 0
+
+        # Slam
+        self.slam_start_y = 0
+        self.shockwave = None
+        self.shockwave_timer = 0
+
+        # Summon
+        self.summoned_flies = []
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
+        if self.hp <= 0:
+            self.alive = False
+
+    def update(self, player, arena_platforms):
+        if not self.alive:
+            return
+
+        # Apply gravity
+        self.vel_y += GRAVITY
+        self.rect.y += self.vel_y
+        for p in arena_platforms:
+            if self.rect.colliderect(p.rect) and self.vel_y > 0:
+                self.rect.bottom = p.rect.top
+                self.vel_y = 0
+
+        # Shockwave timer
+        if self.shockwave and self.shockwave_timer > 0:
+            self.shockwave_timer -= 1
+            self.shockwave.width += 10
+        else:
+            self.shockwave = None
+
+        if self.state == "idle":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.state = self.patterns[self.pattern_index]
+                self.pattern_index = (self.pattern_index + 1) % len(self.patterns)
+                self._start_attack(player)
+
+        elif self.state == "charge":
+            speed = self.charge_speed * self.speed_multiplier
+            if self.rect.centerx < self.charge_target_x:
+                self.rect.x += speed
+            else:
+                self.rect.x -= speed
+            self.state_timer -= 1
+            if self.state_timer <= 0 or abs(self.rect.centerx - self.charge_target_x) < 10:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "slam":
+            if self.state_timer > 30:
+                # Rising up
+                self.rect.y -= 5
+                self.state_timer -= 1
+            elif self.state_timer > 0:
+                # Slamming down
+                self.vel_y = 15
+                self.state_timer -= 1
+                if self.vel_y == 0 and self.rect.bottom >= self.slam_start_y:
+                    self.shockwave = pygame.Rect(
+                        self.rect.x - 50, self.rect.bottom - 10,
+                        self.rect.width + 100, 15
+                    )
+                    self.shockwave_timer = 20
+                    self.state = "idle"
+                    self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "summon":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.summoned_flies = [
+                    Fly(self.rect.x - 50, self.rect.y - 30,
+                        self.rect.x - 200, self.rect.x + 200),
+                    Fly(self.rect.right + 50, self.rect.y - 30,
+                        self.rect.x - 200, self.rect.x + 200),
+                ]
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+    def _start_attack(self, player):
+        if self.state == "charge":
+            self.charge_target_x = player.rect.centerx
+            self.state_timer = 60
+        elif self.state == "slam":
+            self.slam_start_y = self.rect.bottom
+            self.state_timer = 50
+        elif self.state == "summon":
+            self.state_timer = 30
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            return
+        draw_rect = self.rect.move(-camera_x, 0)
+        pygame.draw.rect(screen, self.color, draw_rect)
+        # Eyes
+        eye_y = draw_rect.top + 20
+        pygame.draw.circle(screen, RED, (draw_rect.left + 30, eye_y), 8)
+        pygame.draw.circle(screen, RED, (draw_rect.right - 30, eye_y), 8)
+        # Shockwave
+        if self.shockwave and self.shockwave_timer > 0:
+            sw = self.shockwave.move(-camera_x, 0)
+            wave_surface = pygame.Surface((sw.width, sw.height), pygame.SRCALPHA)
+            wave_surface.fill((255, 100, 50, 150))
+            screen.blit(wave_surface, sw)
+
+
 def create_level(level_num):
     """Return (platforms, enemies) for the given level number (0-indexed)."""
     theme = LEVEL_THEMES[level_num]
@@ -494,12 +624,15 @@ def draw_victory(screen):
     screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
 
 
-def handle_combat(player, enemies):
+def handle_combat(player, enemies, boss=None):
     # Player attack hits enemies
     if player.attacking and player.attack_rect:
         for enemy in enemies:
             if enemy.alive and player.attack_rect.colliderect(enemy.rect):
                 enemy.take_damage(1)
+        # Player attack hits boss
+        if boss and boss.alive and player.attack_rect.colliderect(boss.rect):
+            boss.take_damage(1)
 
     # Enemies damage player on contact
     for enemy in enemies:
@@ -511,6 +644,32 @@ def handle_combat(player, enemies):
                 else:
                     player.rect.x += 30
                 player.vel_y = -8  # Small bounce up
+
+    # Boss damages player
+    if boss and boss.alive:
+        if player.rect.colliderect(boss.rect):
+            if player.take_damage(1):
+                if player.rect.centerx < boss.rect.centerx:
+                    player.rect.x -= 40
+                else:
+                    player.rect.x += 40
+                player.vel_y = -10
+        # Shockwave damages player
+        if boss.shockwave and boss.shockwave_timer > 0:
+            if player.rect.colliderect(boss.shockwave):
+                if player.take_damage(1):
+                    player.vel_y = -12
+
+
+def draw_boss_hp(screen, boss):
+    bar_width = 300
+    bar_x = SCREEN_WIDTH // 2 - bar_width // 2
+    pygame.draw.rect(screen, (80, 80, 80), (bar_x - 2, 10, bar_width + 4, 22))
+    hp_width = int(bar_width * boss.hp / boss.max_hp)
+    pygame.draw.rect(screen, ORANGE, (bar_x, 12, hp_width, 18))
+    font = pygame.font.Font(None, 24)
+    label = font.render("WASP KING", True, WHITE)
+    screen.blit(label, (SCREEN_WIDTH // 2 - label.get_width() // 2, 36))
 
 
 def main():
@@ -527,13 +686,19 @@ def main():
     enemies = []
     player = None
     camera = None
+    boss = None
 
     def start_level():
-        nonlocal platforms, enemies, player, camera
+        nonlocal platforms, enemies, player, camera, boss
         platforms, enemies = create_level(current_level)
         player = Player(50, 400)
         player.hp = PLAYER_MAX_HP
         camera = Camera()
+        # Spawn boss on level 3 (index 2)
+        if current_level == 2:
+            boss = WaspKing(2000, 540 - 90)  # In the boss arena
+        else:
+            boss = None
 
     running = True
     while running:
@@ -566,20 +731,25 @@ def main():
                     enemy.update(player.rect.centerx)
                 else:
                     enemy.update()
-            handle_combat(player, enemies)
+            if boss and boss.alive:
+                boss.update(player, platforms)
+                # Add summoned flies to enemy list
+                if boss.summoned_flies:
+                    enemies.extend(boss.summoned_flies)
+                    boss.summoned_flies = []
+            handle_combat(player, enemies, boss)
             camera.update(player)
 
             # Check for death
             if player.hp <= 0:
                 game_state = STATE_GAME_OVER
 
-            # Check for level complete
-            if check_level_complete(player, enemies):
+            # Check for level complete or boss defeat
+            if current_level == 2 and boss and not boss.alive:
+                game_state = STATE_VICTORY
+            elif current_level < 2 and check_level_complete(player, enemies):
                 current_level += 1
-                if current_level >= 3:
-                    game_state = STATE_VICTORY
-                else:
-                    game_state = STATE_LEVEL_TRANSITION
+                game_state = STATE_LEVEL_TRANSITION
 
         # Drawing
         if game_state == STATE_TITLE:
@@ -590,8 +760,12 @@ def main():
                 p.draw(screen, camera.x)
             for enemy in enemies:
                 enemy.draw(screen, camera.x)
+            if boss and boss.alive:
+                boss.draw(screen, camera.x)
             player.draw(screen, camera.x)
             draw_hud(screen, player, LEVEL_THEMES[current_level]["name"])
+            if boss and boss.alive:
+                draw_boss_hp(screen, boss)
         elif game_state == STATE_GAME_OVER:
             draw_game_over(screen)
         elif game_state == STATE_LEVEL_TRANSITION:
