@@ -694,6 +694,401 @@ def create_level(island, level):
             enemies = []
 
     # =========================================================================
+    # ISLAND 4 — The Shadow Fortress (FINAL ISLAND)
+    # =========================================================================
+    elif island == 4:
+        if level == 0:  # Shadow Gate — intro but still hard, mix of all enemies
+            platforms = [
+                Platform(0, 540, 350, 60, color),
+                Platform(200, 430, 90, 20, color),
+                Platform(380, 350, 80, 20, color),
+                Platform(520, 460, 100, 20, color),
+                # Gap
+                Platform(700, 540, 250, 60, color),
+                Platform(820, 400, 80, 20, color),
+                Platform(980, 310, 90, 20, color),
+                Platform(1130, 420, 80, 20, color),
+                Platform(1270, 540, 300, 60, color),
+                Platform(1400, 400, 90, 20, color),
+                Platform(1570, 310, 80, 20, color),
+                # Gap
+                Platform(1720, 540, 200, 60, color),
+                Platform(1850, 420, 80, 20, color),
+                Platform(2000, 340, 100, 20, color),
+                Platform(2150, 460, 80, 20, color),
+                Platform(2300, 540, 350, 60, color),
+                Platform(2500, 400, 90, 20, color),
+                Platform(2650, 540, 200, 60, color),
+            ]
+            enemies = scale_enemies([
+                Wasp(150, 540 - 24, 50, 300),
+                Spider(430, 350 - 28, 380, 520),
+                Fly(600, 400, 520, 730),
+                Wasp(750, 540 - 24, 700, 920),
+                Spider(870, 400 - 28, 820, 1000),
+                Fly(1030, 250, 980, 1180),
+                Wasp(1320, 540 - 24, 1270, 1520),
+                Spider(1450, 400 - 28, 1400, 1600),
+                Fly(1620, 250, 1570, 1750),
+                Wasp(1770, 540 - 24, 1720, 1900),
+                Spider(1900, 420 - 28, 1850, 2050),
+                Fly(2050, 280, 2000, 2200),
+                Wasp(2400, 540 - 24, 2300, 2600),
+                Spider(2550, 400 - 28, 2500, 2700),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 1:  # Dark Corridor — long corridor, enemies in waves
+            platforms = [
+                Platform(0, 540, 400, 60, color),
+                Platform(250, 440, 100, 20, color),
+                # Gap
+                Platform(500, 540, 300, 60, color),
+                Platform(650, 420, 100, 20, color),
+                Platform(850, 540, 300, 60, color),
+                Platform(1000, 420, 80, 20, color),
+                # Gap
+                Platform(1200, 540, 300, 60, color),
+                Platform(1350, 400, 100, 20, color),
+                Platform(1550, 540, 250, 60, color),
+                Platform(1650, 420, 80, 20, color),
+                # Gap
+                Platform(1850, 540, 300, 60, color),
+                Platform(2000, 400, 100, 20, color),
+                Platform(2200, 540, 300, 60, color),
+                Platform(2350, 420, 80, 20, color),
+                # Gap
+                Platform(2550, 540, 250, 60, color),
+                Platform(2700, 400, 100, 20, color),
+                Platform(2900, 540, 300, 60, color),
+                Platform(3050, 440, 80, 20, color),
+                Platform(3200, 540, 250, 60, color),
+                # Gap
+                Platform(3550, 540, 300, 60, color),
+                Platform(3700, 420, 100, 20, color),
+                Platform(3850, 540, 200, 60, color),
+            ]
+            enemies = scale_enemies([
+                # Wave 1
+                Wasp(150, 540 - 24, 50, 350),
+                Wasp(300, 440 - 24, 250, 450),
+                # Wave 2
+                Spider(550, 540 - 28, 500, 780),
+                Fly(700, 360, 650, 900),
+                Wasp(900, 540 - 24, 850, 1100),
+                # Wave 3
+                Spider(1050, 420 - 28, 1000, 1200),
+                Wasp(1250, 540 - 24, 1200, 1450),
+                Fly(1400, 340, 1350, 1600),
+                # Wave 4
+                Spider(1600, 540 - 28, 1550, 1800),
+                Wasp(1700, 420 - 24, 1650, 1850),
+                Fly(1900, 340, 1850, 2100),
+                # Wave 5
+                Spider(2050, 400 - 28, 2000, 2250),
+                Wasp(2250, 540 - 24, 2200, 2450),
+                Spider(2400, 420 - 28, 2350, 2550),
+                # Wave 6
+                Fly(2600, 340, 2550, 2800),
+                Wasp(2750, 400 - 24, 2700, 2950),
+                Spider(2950, 540 - 28, 2900, 3150),
+                # Wave 7
+                Wasp(3100, 440 - 24, 3050, 3250),
+                Fly(3250, 480, 3200, 3450),
+                Spider(3600, 540 - 28, 3550, 3800),
+                Wasp(3750, 420 - 24, 3700, 3900),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 2:  # Phantom Hall — very vertical, lots of small platforms
+            platforms = [
+                Platform(0, 540, 250, 60, color),
+                Platform(130, 440, 70, 20, color),
+                Platform(270, 350, 70, 20, color),
+                Platform(140, 260, 70, 20, color),
+                Platform(300, 180, 80, 20, color),
+                Platform(430, 300, 70, 20, color),
+                Platform(540, 420, 80, 20, color),
+                Platform(620, 540, 180, 60, color),
+                Platform(680, 340, 70, 20, color),
+                Platform(820, 250, 70, 20, color),
+                Platform(700, 160, 80, 20, color),
+                Platform(950, 350, 70, 20, color),
+                Platform(1060, 460, 80, 20, color),
+                Platform(1150, 540, 200, 60, color),
+                Platform(1200, 380, 70, 20, color),
+                Platform(1350, 280, 70, 20, color),
+                Platform(1220, 190, 80, 20, color),
+                Platform(1450, 380, 70, 20, color),
+                Platform(1580, 470, 80, 20, color),
+                Platform(1700, 540, 200, 60, color),
+                Platform(1750, 400, 70, 20, color),
+                Platform(1900, 300, 80, 20, color),
+                Platform(1780, 210, 70, 20, color),
+                Platform(2050, 400, 70, 20, color),
+                Platform(2150, 500, 80, 20, color),
+                Platform(2300, 540, 250, 60, color),
+            ]
+            enemies = scale_enemies([
+                Wasp(80, 540 - 24, 30, 220),
+                Fly(180, 200, 130, 350),
+                Spider(350, 180 - 28, 300, 470),
+                Fly(480, 240, 430, 600),
+                Spider(590, 420 - 28, 540, 700),
+                Wasp(660, 540 - 24, 620, 780),
+                Fly(730, 190, 680, 870),
+                Spider(870, 250 - 28, 820, 1000),
+                Fly(1000, 290, 950, 1110),
+                Spider(1110, 460 - 28, 1060, 1200),
+                Wasp(1200, 540 - 24, 1150, 1330),
+                Fly(1300, 220, 1220, 1400),
+                Spider(1400, 280 - 28, 1350, 1500),
+                Fly(1530, 410, 1450, 1630),
+                Wasp(1740, 540 - 24, 1700, 1880),
+                Spider(1800, 400 - 28, 1750, 1950),
+                Fly(1950, 240, 1900, 2100),
+                Wasp(2100, 400 - 24, 2050, 2200),
+                Spider(2200, 500 - 28, 2150, 2350),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 3:  # Nightmare Chamber — dense enemies, tricky jumps
+            platforms = [
+                Platform(0, 540, 200, 60, color),
+                Platform(120, 430, 70, 20, color),
+                Platform(260, 340, 70, 20, color),
+                # Gap
+                Platform(400, 540, 150, 60, color),
+                Platform(480, 400, 70, 20, color),
+                Platform(610, 290, 80, 20, color),
+                # Gap
+                Platform(780, 540, 150, 60, color),
+                Platform(850, 410, 70, 20, color),
+                Platform(990, 310, 70, 20, color),
+                Platform(1120, 420, 80, 20, color),
+                Platform(1250, 540, 180, 60, color),
+                # Tight section
+                Platform(1380, 450, 70, 20, color),
+                Platform(1500, 360, 70, 20, color),
+                Platform(1620, 280, 80, 20, color),
+                Platform(1750, 380, 70, 20, color),
+                # Gap
+                Platform(1900, 540, 150, 60, color),
+                Platform(1980, 420, 70, 20, color),
+                Platform(2120, 330, 80, 20, color),
+                Platform(2260, 440, 70, 20, color),
+                Platform(2380, 540, 200, 60, color),
+                # Gap
+                Platform(2650, 540, 200, 60, color),
+                Platform(2750, 400, 80, 20, color),
+                Platform(2900, 300, 70, 20, color),
+                Platform(3050, 420, 80, 20, color),
+                Platform(3180, 540, 250, 60, color),
+            ]
+            enemies = scale_enemies([
+                Wasp(70, 540 - 24, 30, 180),
+                Spider(170, 430 - 28, 120, 310),
+                Spider(310, 340 - 28, 260, 420),
+                Fly(450, 340, 400, 560),
+                Wasp(530, 400 - 24, 480, 650),
+                Spider(660, 290 - 28, 610, 800),
+                Wasp(820, 540 - 24, 780, 930),
+                Spider(900, 410 - 28, 850, 1040),
+                Fly(1040, 250, 990, 1170),
+                Wasp(1170, 420 - 24, 1120, 1280),
+                Spider(1300, 540 - 28, 1250, 1420),
+                Fly(1430, 300, 1380, 1550),
+                Spider(1550, 360 - 28, 1500, 1670),
+                Wasp(1670, 280 - 24, 1620, 1800),
+                Spider(1800, 380 - 28, 1750, 1930),
+                Fly(1930, 360, 1900, 2050),
+                Wasp(2030, 420 - 24, 1980, 2170),
+                Spider(2170, 330 - 28, 2120, 2310),
+                Wasp(2310, 440 - 24, 2260, 2420),
+                Spider(2430, 540 - 28, 2380, 2600),
+                Fly(2700, 340, 2650, 2850),
+                Spider(2800, 400 - 28, 2750, 2950),
+                Wasp(2950, 300 - 24, 2900, 3100),
+                Spider(3100, 420 - 28, 3050, 3230),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 4:  # Void Passage — long level, lots of spiders
+            platforms = [
+                Platform(0, 540, 300, 60, color),
+                Platform(180, 430, 80, 20, color),
+                Platform(330, 340, 80, 20, color),
+                # Gap
+                Platform(500, 540, 200, 60, color),
+                Platform(580, 400, 70, 20, color),
+                Platform(730, 300, 80, 20, color),
+                Platform(880, 420, 70, 20, color),
+                Platform(1000, 540, 200, 60, color),
+                # Gap
+                Platform(1300, 540, 180, 60, color),
+                Platform(1350, 400, 70, 20, color),
+                Platform(1500, 300, 80, 20, color),
+                Platform(1650, 400, 70, 20, color),
+                Platform(1800, 540, 200, 60, color),
+                # Gap
+                Platform(2100, 480, 100, 20, color),
+                Platform(2250, 540, 200, 60, color),
+                Platform(2350, 400, 70, 20, color),
+                Platform(2500, 300, 80, 20, color),
+                Platform(2650, 420, 70, 20, color),
+                Platform(2800, 540, 250, 60, color),
+                # Gap
+                Platform(3150, 540, 200, 60, color),
+                Platform(3250, 400, 80, 20, color),
+                Platform(3400, 300, 70, 20, color),
+                Platform(3550, 420, 80, 20, color),
+                Platform(3700, 540, 200, 60, color),
+                # Gap
+                Platform(4000, 540, 200, 60, color),
+                Platform(4100, 420, 80, 20, color),
+                Platform(4250, 540, 250, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(230, 430 - 28, 180, 380),
+                Spider(380, 340 - 28, 330, 500),
+                Wasp(550, 540 - 24, 500, 700),
+                Spider(630, 400 - 28, 580, 780),
+                Spider(780, 300 - 28, 730, 930),
+                Fly(930, 360, 880, 1050),
+                Spider(1050, 540 - 28, 1000, 1200),
+                Spider(1400, 400 - 28, 1350, 1550),
+                Spider(1550, 300 - 28, 1500, 1700),
+                Wasp(1700, 400 - 24, 1650, 1850),
+                Spider(1850, 540 - 28, 1800, 2000),
+                Spider(2150, 480 - 28, 2100, 2300),
+                Fly(2300, 340, 2250, 2450),
+                Spider(2400, 400 - 28, 2350, 2550),
+                Spider(2550, 300 - 28, 2500, 2700),
+                Wasp(2700, 420 - 24, 2650, 2850),
+                Spider(2850, 540 - 28, 2800, 3050),
+                Spider(3200, 540 - 28, 3150, 3350),
+                Spider(3300, 400 - 28, 3250, 3450),
+                Spider(3450, 300 - 28, 3400, 3600),
+                Wasp(3600, 420 - 24, 3550, 3750),
+                Spider(3750, 540 - 28, 3700, 3900),
+                Spider(4050, 540 - 28, 4000, 4200),
+                Spider(4150, 420 - 28, 4100, 4300),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 5:  # Eclipse Sanctum — the hardest regular level in the game
+            platforms = [
+                Platform(0, 540, 200, 60, color),
+                Platform(110, 430, 60, 20, color),
+                Platform(240, 340, 60, 20, color),
+                Platform(110, 250, 70, 20, color),
+                # Gap
+                Platform(370, 540, 130, 60, color),
+                Platform(430, 400, 60, 20, color),
+                Platform(560, 300, 70, 20, color),
+                Platform(690, 400, 60, 20, color),
+                # Gap
+                Platform(830, 540, 130, 60, color),
+                Platform(890, 420, 60, 20, color),
+                Platform(1020, 320, 60, 20, color),
+                Platform(1150, 420, 60, 20, color),
+                Platform(1260, 540, 150, 60, color),
+                # Gauntlet section — tight platforms, many enemies
+                Platform(1380, 450, 60, 20, color),
+                Platform(1500, 360, 60, 20, color),
+                Platform(1620, 270, 70, 20, color),
+                Platform(1750, 380, 60, 20, color),
+                Platform(1860, 480, 60, 20, color),
+                # Gap
+                Platform(2000, 540, 150, 60, color),
+                Platform(2080, 400, 60, 20, color),
+                Platform(2210, 300, 70, 20, color),
+                Platform(2340, 400, 60, 20, color),
+                Platform(2460, 540, 150, 60, color),
+                # Gauntlet 2
+                Platform(2570, 440, 60, 20, color),
+                Platform(2690, 340, 60, 20, color),
+                Platform(2810, 250, 70, 20, color),
+                Platform(2930, 360, 60, 20, color),
+                # Gap
+                Platform(3080, 540, 150, 60, color),
+                Platform(3150, 400, 60, 20, color),
+                Platform(3280, 300, 70, 20, color),
+                Platform(3400, 420, 60, 20, color),
+                Platform(3530, 540, 200, 60, color),
+                # Final stretch
+                Platform(3700, 460, 70, 20, color),
+                Platform(3830, 540, 200, 60, color),
+            ]
+            enemies = scale_enemies([
+                Wasp(60, 540 - 24, 30, 180),
+                Fly(160, 290, 110, 300),
+                Spider(290, 340 - 28, 240, 400),
+                Wasp(400, 540 - 24, 370, 500),
+                Spider(480, 400 - 28, 430, 610),
+                Fly(610, 240, 560, 740),
+                Spider(740, 400 - 28, 690, 860),
+                Wasp(870, 540 - 24, 830, 960),
+                Spider(940, 420 - 28, 890, 1070),
+                Fly(1070, 260, 1020, 1200),
+                Wasp(1200, 420 - 24, 1150, 1300),
+                Spider(1310, 540 - 28, 1260, 1420),
+                Fly(1430, 390, 1380, 1550),
+                Spider(1550, 360 - 28, 1500, 1670),
+                Wasp(1670, 270 - 24, 1620, 1800),
+                Fly(1800, 320, 1750, 1910),
+                Spider(1910, 480 - 28, 1860, 2040),
+                Wasp(2040, 540 - 24, 2000, 2120),
+                Spider(2130, 400 - 28, 2080, 2260),
+                Fly(2260, 240, 2210, 2390),
+                Spider(2390, 400 - 28, 2340, 2510),
+                Wasp(2500, 540 - 24, 2460, 2610),
+                Spider(2620, 440 - 28, 2570, 2740),
+                Fly(2740, 280, 2690, 2860),
+                Spider(2860, 250 - 28, 2810, 2980),
+                Wasp(2980, 360 - 24, 2930, 3120),
+                Spider(3120, 540 - 28, 3080, 3200),
+                Fly(3200, 340, 3150, 3330),
+                Spider(3330, 300 - 28, 3280, 3450),
+                Wasp(3450, 420 - 24, 3400, 3570),
+                Spider(3580, 540 - 28, 3530, 3680),
+                Fly(3750, 400, 3700, 3880),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        elif level == 6:  # Shadow Hornet's Throne — regular enemies lead to massive boss arena
+            platforms = [
+                Platform(0, 540, 350, 60, color),
+                Platform(200, 430, 90, 20, color),
+                Platform(380, 350, 80, 20, color),
+                # Gap
+                Platform(550, 540, 200, 60, color),
+                Platform(650, 400, 80, 20, color),
+                Platform(830, 300, 100, 20, color),
+                Platform(1000, 420, 80, 20, color),
+                Platform(1150, 540, 200, 60, color),
+                # Gap
+                Platform(1450, 540, 200, 60, color),
+                Platform(1550, 400, 100, 20, color),
+                Platform(1750, 540, 200, 60, color),
+                # Boss arena — massive flat area for the final showdown
+                Platform(2100, 540, 1400, 60, color),
+                # Arena elevated platforms for maneuvering during boss fight
+                Platform(2300, 400, 120, 20, color),
+                Platform(2650, 350, 120, 20, color),
+                Platform(3000, 400, 120, 20, color),
+            ]
+            enemies = scale_enemies([
+                Wasp(150, 540 - 24, 50, 300),
+                Fly(430, 290, 380, 580),
+                Spider(600, 540 - 28, 550, 740),
+                Wasp(700, 400 - 24, 650, 860),
+                Fly(880, 240, 830, 1050),
+                Spider(1050, 420 - 28, 1000, 1200),
+                Wasp(1200, 540 - 24, 1150, 1350),
+                Fly(1500, 340, 1450, 1650),
+                Wasp(1600, 540 - 24, 1550, 1750),
+            ], hp_multiplier=5.0, speed_multiplier=1.3)
+
+        else:
+            platforms = []
+            enemies = []
+
+    # =========================================================================
     # Fallback for unbuilt islands
     # =========================================================================
     else:
@@ -725,6 +1120,16 @@ def check_level_complete(player, enemies, island=0, level=0):
         end_x = 3450  # Ash Wastes gauntlet is the longest
     elif island == 3:
         end_x = 2300  # Other volcano levels
+    elif island == 4 and level == 1:
+        end_x = 3750  # Dark Corridor is long
+    elif island == 4 and level == 4:
+        end_x = 4150  # Void Passage is the longest
+    elif island == 4 and level == 5:
+        end_x = 3730  # Eclipse Sanctum gauntlet
+    elif island == 4 and level == 3:
+        end_x = 3100  # Nightmare Chamber
+    elif island == 4:
+        end_x = 2550  # Other shadow fortress levels
     else:
         end_x = 1900  # Island 0 levels
     past_end = player.rect.x > end_x

@@ -1168,3 +1168,469 @@ class FireMoth:
             pygame.draw.line(screen, (255, 255, 100),
                              (wr.x, gap_screen_y + gap_h),
                              (wr.right, gap_screen_y + gap_h), 2)
+
+
+class ShadowHornet:
+    """FINAL BOSS of Island 4: The Shadow Fortress.
+
+    A dark mirror of the player — the Shadow Hornet.  Attacks cycle through:
+      1. Shadow Charge — flies at the player at high speed, leaving afterimages.
+      2. Shadow Stinger — dashes forward and attacks with a stinger hitbox.
+      3. Teleport Strike — disappears, reappears behind player, immediate attack.
+      4. Shadow Clones — creates clones that mirror movement; only real one takes damage.
+
+    Gets more aggressive as HP drops (enrage at 75%, 50%, 25%).
+    """
+
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 64, 64)
+        self.hp = 50
+        self.max_hp = 50
+        self.color = (40, 0, 60)        # Deep shadow purple
+        self.alive = True
+        self.vel_y = 0
+        self.vel_x = 0
+
+        # Attack pattern state
+        self.state = "idle"
+        self.state_timer = 0
+        self.pattern_index = 0
+        self.patterns = ["shadow_charge", "shadow_stinger", "teleport_strike", "shadow_clones"]
+        self.idle_time = 60
+        self.speed_multiplier = 1.0
+
+        # Floating movement
+        self.float_y = y
+        self.float_angle = 0
+        self.float_dir = 1
+        self.float_speed = 2.0
+
+        # Shadow Charge
+        self.charge_speed = 12
+        self.charge_target_x = 0
+        self.charge_target_y = 0
+        self.shadow_trail = []   # list of dicts: {x, y, timer, alpha}
+
+        # Shadow Stinger
+        self.stinger_hitbox = None   # pygame.Rect or None
+        self.stinger_timer = 0
+
+        # Teleport Strike
+        self.teleport_visible = True   # False during teleport phase
+        self.teleport_timer = 0
+        self.teleport_target_x = 0
+        self.teleport_target_y = 0
+        self.teleport_fade = 255       # For fade in/out effect
+
+        # Shadow Clones
+        self.clones = []  # list of dicts: {rect, hp, timer, vel_x, vel_y}
+
+        # For combat.py compatibility
+        self.shockwave = None
+        self.shockwave_left = None
+        self.shockwave_right = None
+        self.shockwave_timer = 0
+        self.summoned_flies = []
+
+        # Animation
+        self.anim_t = 0
+        self.anim_f = 0
+        self.facing_right = False
+        self.wing_phase = 0
+
+        # Arena bounds
+        self.arena_left = None
+        self.arena_right = None
+
+        # Shadow particles (cosmetic)
+        self.shadow_particles = []
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        # Enrage: gets faster as HP drops
+        hp_ratio = self.hp / self.max_hp
+        if hp_ratio <= 0.25:
+            self.speed_multiplier = 2.0
+        elif hp_ratio <= 0.50:
+            self.speed_multiplier = 1.6
+        elif hp_ratio <= 0.75:
+            self.speed_multiplier = 1.3
+        else:
+            self.speed_multiplier = 1.0
+        if self.hp <= 0:
+            self.alive = False
+
+    def update(self, player, arena_platforms):
+        if not self.alive:
+            return
+
+        # Figure out arena bounds from platforms (once)
+        if self.arena_left is None:
+            lefts = [p.rect.left for p in arena_platforms]
+            rights = [p.rect.right for p in arena_platforms]
+            if lefts:
+                self.arena_left = min(lefts)
+                self.arena_right = max(rights)
+            else:
+                self.arena_left = 0
+                self.arena_right = 3500
+
+        # Animation tick
+        self.anim_t += 1
+        if self.anim_t >= 5:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+        self.wing_phase += 0.12
+
+        # Update shadow trail (afterimages fade out)
+        for trail in self.shadow_trail[:]:
+            trail["timer"] -= 1
+            trail["alpha"] = max(0, trail["alpha"] - 15)
+            if trail["timer"] <= 0:
+                self.shadow_trail.remove(trail)
+
+        # Update shadow particles (cosmetic dripping effect)
+        if random.random() < 0.3 and self.teleport_visible:
+            self.shadow_particles.append({
+                "x": self.rect.centerx + random.randint(-20, 20),
+                "y": self.rect.bottom + random.randint(-5, 5),
+                "timer": 30,
+                "vy": random.uniform(0.5, 1.5),
+            })
+        for p in self.shadow_particles[:]:
+            p["y"] += p["vy"]
+            p["timer"] -= 1
+            if p["timer"] <= 0:
+                self.shadow_particles.remove(p)
+
+        # Update stinger hitbox
+        if self.stinger_hitbox and self.stinger_timer > 0:
+            self.stinger_timer -= 1
+        else:
+            self.stinger_hitbox = None
+
+        # Update clones
+        for clone in self.clones[:]:
+            clone["timer"] -= 1
+            # Clones mirror the boss's floating movement
+            clone["rect"].x += self.float_dir * self.float_speed * self.speed_multiplier
+            clone["rect"].y = self.float_y + int(math.sin(self.float_angle + clone.get("phase", 0)) * 30)
+            # Keep clones in arena
+            if clone["rect"].left < self.arena_left:
+                clone["rect"].left = self.arena_left
+            if clone["rect"].right > self.arena_right:
+                clone["rect"].right = self.arena_right
+            if clone["timer"] <= 0:
+                self.clones.remove(clone)
+
+        # ---- State machine ----
+        if self.state == "idle":
+            # Float around
+            self.float_angle += 0.03 * self.speed_multiplier
+            self.rect.x += self.float_dir * self.float_speed * self.speed_multiplier
+            self.rect.y = self.float_y + int(math.sin(self.float_angle) * 25)
+
+            # Bounce off arena edges
+            if self.arena_left is not None:
+                if self.rect.left <= self.arena_left + 30:
+                    self.float_dir = 1
+                    self.facing_right = True
+                elif self.rect.right >= self.arena_right - 30:
+                    self.float_dir = -1
+                    self.facing_right = False
+
+            self.state_timer -= 1
+            # Shorter idle between attacks when enraged
+            if self.state_timer <= 0:
+                self.state = self.patterns[self.pattern_index]
+                self.pattern_index = (self.pattern_index + 1) % len(self.patterns)
+                self._start_attack(player)
+
+        elif self.state == "shadow_charge":
+            # Fly at the player at high speed, leaving shadow trail
+            speed = self.charge_speed * self.speed_multiplier
+            dx = self.charge_target_x - self.rect.centerx
+            dy = self.charge_target_y - self.rect.centery
+            dist = max(1, math.sqrt(dx * dx + dy * dy))
+            self.rect.x += (dx / dist) * speed
+            self.rect.y += (dy / dist) * speed
+            self.facing_right = dx > 0
+
+            # Leave shadow trail
+            self.shadow_trail.append({
+                "x": self.rect.x, "y": self.rect.y,
+                "timer": 20, "alpha": 150,
+            })
+
+            self.state_timer -= 1
+            if self.state_timer <= 0 or dist < 20:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+                self.float_y = max(250, min(450, self.rect.y))
+
+        elif self.state == "shadow_stinger":
+            # Dash forward and attack with a stinger hitbox
+            speed = 10 * self.speed_multiplier
+            if self.facing_right:
+                self.rect.x += speed
+            else:
+                self.rect.x -= speed
+
+            # Leave trail
+            if self.state_timer % 3 == 0:
+                self.shadow_trail.append({
+                    "x": self.rect.x, "y": self.rect.y,
+                    "timer": 15, "alpha": 120,
+                })
+
+            self.state_timer -= 1
+            # Create stinger hitbox in front
+            if self.state_timer == 15:
+                if self.facing_right:
+                    self.stinger_hitbox = pygame.Rect(
+                        self.rect.right, self.rect.centery - 10, 50, 20
+                    )
+                else:
+                    self.stinger_hitbox = pygame.Rect(
+                        self.rect.left - 50, self.rect.centery - 10, 50, 20
+                    )
+                self.stinger_timer = 10
+
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+                self.float_y = max(250, min(450, self.rect.y))
+
+        elif self.state == "teleport_strike":
+            if self.state_timer > 30:
+                # Phase 1: Fade out
+                self.teleport_fade = max(0, self.teleport_fade - 9)
+                if self.teleport_fade <= 0:
+                    self.teleport_visible = False
+                self.state_timer -= 1
+            elif self.state_timer > 10:
+                # Phase 2: Invisible — teleport to behind the player
+                if self.state_timer == 30:
+                    # Calculate position behind the player
+                    offset = 80 if not player.facing_right else -80
+                    self.teleport_target_x = player.rect.x + offset
+                    self.teleport_target_y = player.rect.y
+                    self.rect.x = self.teleport_target_x
+                    self.rect.y = self.teleport_target_y
+                    self.facing_right = player.rect.centerx > self.rect.centerx
+                self.state_timer -= 1
+            elif self.state_timer > 0:
+                # Phase 3: Fade in and immediately attack
+                self.teleport_visible = True
+                self.teleport_fade = min(255, self.teleport_fade + 30)
+                if self.state_timer == 8:
+                    # Create stinger attack behind player
+                    if self.facing_right:
+                        self.stinger_hitbox = pygame.Rect(
+                            self.rect.right, self.rect.centery - 10, 50, 20
+                        )
+                    else:
+                        self.stinger_hitbox = pygame.Rect(
+                            self.rect.left - 50, self.rect.centery - 10, 50, 20
+                        )
+                    self.stinger_timer = 10
+                self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.teleport_visible = True
+                self.teleport_fade = 255
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+                self.float_y = max(250, min(450, self.rect.y))
+
+        elif self.state == "shadow_clones":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                # Create shadow clones
+                hp_ratio = self.hp / self.max_hp
+                num_clones = 3 if hp_ratio <= 0.50 else 2
+                for i in range(num_clones):
+                    offset_x = random.randint(-200, 200)
+                    offset_y = random.randint(-50, 50)
+                    clone_rect = pygame.Rect(
+                        self.rect.x + offset_x,
+                        self.rect.y + offset_y,
+                        self.rect.width, self.rect.height
+                    )
+                    # Keep clone in arena
+                    if self.arena_left is not None:
+                        clone_rect.left = max(self.arena_left, clone_rect.left)
+                        clone_rect.right = min(self.arena_right, clone_rect.right)
+                    self.clones.append({
+                        "rect": clone_rect,
+                        "hp": 1,       # One hit reveals it as fake
+                        "timer": 300,  # 5 seconds
+                        "phase": random.uniform(0, 6.28),
+                    })
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        # Keep floating at a reasonable height
+        if self.state == "idle" and self.float_y > 420:
+            self.float_y -= 2
+        elif self.state == "idle" and self.float_y < 280:
+            self.float_y += 2
+
+    def _start_attack(self, player):
+        """Initialize whichever attack we're about to do."""
+        if self.state == "shadow_charge":
+            self.charge_target_x = player.rect.centerx
+            self.charge_target_y = player.rect.centery
+            self.state_timer = 40
+        elif self.state == "shadow_stinger":
+            self.facing_right = player.rect.centerx > self.rect.centerx
+            # Position at the player's height
+            self.rect.y = player.rect.y - 10
+            self.state_timer = 30
+        elif self.state == "teleport_strike":
+            self.teleport_fade = 255
+            self.teleport_visible = True
+            self.state_timer = 45
+        elif self.state == "shadow_clones":
+            self.state_timer = 20
+
+    def clone_hit(self, clone):
+        """Called when a clone is hit — it disappears."""
+        clone["hp"] -= 1
+        if clone["hp"] <= 0 and clone in self.clones:
+            self.clones.remove(clone)
+
+    def get_all_damage_rects(self):
+        """Return list of rects that damage the player (stinger attacks)."""
+        rects = []
+        if self.stinger_hitbox and self.stinger_timer > 0:
+            rects.append(self.stinger_hitbox)
+        return rects
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            return
+
+        # Draw shadow trail (afterimages)
+        for trail in self.shadow_trail:
+            trail_rect = pygame.Rect(trail["x"] - camera_x, trail["y"],
+                                      self.rect.width, self.rect.height)
+            trail_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            trail_surf.fill((60, 0, 90, trail["alpha"]))
+            screen.blit(trail_surf, trail_rect)
+
+        # Draw shadow particles
+        for p in self.shadow_particles:
+            px = int(p["x"] - camera_x)
+            py = int(p["y"])
+            alpha = int(255 * (p["timer"] / 30.0))
+            particle_surf = pygame.Surface((4, 4), pygame.SRCALPHA)
+            particle_surf.fill((80, 20, 120, alpha))
+            screen.blit(particle_surf, (px, py))
+
+        # Draw clones (transparent/darker versions)
+        for clone in self.clones:
+            cr = clone["rect"].move(-camera_x, 0)
+            clone_surf = pygame.Surface((cr.width, cr.height), pygame.SRCALPHA)
+            # Darker, more transparent version of the boss
+            self._draw_hornet_body(clone_surf, pygame.Rect(0, 0, cr.width, cr.height),
+                                    alpha=100, is_clone=True)
+            screen.blit(clone_surf, cr)
+
+        # Draw the real boss (skip if invisible during teleport)
+        if not self.teleport_visible:
+            return
+
+        draw_rect = self.rect.move(-camera_x, 0)
+
+        # If fading in/out during teleport, draw with alpha
+        if self.teleport_fade < 255:
+            boss_surf = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            self._draw_hornet_body(boss_surf, pygame.Rect(0, 0, draw_rect.width, draw_rect.height),
+                                    alpha=self.teleport_fade, is_clone=False)
+            screen.blit(boss_surf, draw_rect)
+        else:
+            self._draw_hornet_body(screen, draw_rect, alpha=255, is_clone=False)
+
+        # Draw stinger hitbox (purple slash effect)
+        if self.stinger_hitbox and self.stinger_timer > 0:
+            sh_rect = self.stinger_hitbox.move(-camera_x, 0)
+            slash_surf = pygame.Surface((sh_rect.width, sh_rect.height), pygame.SRCALPHA)
+            slash_surf.fill((150, 50, 200, 180))
+            screen.blit(slash_surf, sh_rect)
+
+    def _draw_hornet_body(self, surface, rect, alpha=255, is_clone=False):
+        """Draw the shadow hornet body on a given surface at the given rect.
+        Used for both the real boss and clones."""
+        cx, cy = rect.centerx, rect.centery
+
+        # Body color — dark purple, clones are even darker
+        if is_clone:
+            body_color = (25, 0, 40, alpha)
+            accent = (60, 20, 80, alpha)
+            eye_color = (120, 40, 160, alpha)
+        else:
+            body_color = (40, 0, 60, alpha)
+            accent = (80, 30, 110, alpha)
+            eye_color = (180, 50, 255, alpha)
+
+        # Body — oval
+        body_rect = pygame.Rect(rect.x + 8, rect.y + 12, rect.width - 16, rect.height - 16)
+        body_surf = pygame.Surface((body_rect.width, body_rect.height), pygame.SRCALPHA)
+        pygame.draw.ellipse(body_surf, body_color, (0, 0, body_rect.width, body_rect.height))
+        surface.blit(body_surf, body_rect)
+
+        # Dark border
+        pygame.draw.ellipse(surface, accent[:3] if len(accent) > 3 else accent, body_rect, 2)
+
+        # Wings — sharp angular wings
+        wing_offset = int(math.sin(self.wing_phase) * 6)
+
+        # Left wing
+        lw_pts = [
+            (cx - 8, cy - 4),
+            (cx - 30 - wing_offset, cy - 25 - wing_offset),
+            (cx - 25 - wing_offset, cy + 3),
+        ]
+        wing_col = accent[:3] if len(accent) > 3 else accent
+        pygame.draw.polygon(surface, wing_col, lw_pts)
+
+        # Right wing
+        rw_pts = [
+            (cx + 8, cy - 4),
+            (cx + 30 + wing_offset, cy - 25 - wing_offset),
+            (cx + 25 + wing_offset, cy + 3),
+        ]
+        pygame.draw.polygon(surface, wing_col, rw_pts)
+
+        # Glowing eyes — two bright purple dots
+        eye_y = rect.y + 20
+        eye_col = eye_color[:3] if len(eye_color) > 3 else eye_color
+        if self.facing_right:
+            pygame.draw.circle(surface, eye_col, (cx + 2, eye_y), 4)
+            pygame.draw.circle(surface, eye_col, (cx + 12, eye_y), 4)
+            # Glow highlight
+            pygame.draw.circle(surface, (255, 200, 255), (cx + 3, eye_y - 1), 2)
+            pygame.draw.circle(surface, (255, 200, 255), (cx + 13, eye_y - 1), 2)
+        else:
+            pygame.draw.circle(surface, eye_col, (cx - 2, eye_y), 4)
+            pygame.draw.circle(surface, eye_col, (cx - 12, eye_y), 4)
+            pygame.draw.circle(surface, (255, 200, 255), (cx - 1, eye_y - 1), 2)
+            pygame.draw.circle(surface, (255, 200, 255), (cx - 11, eye_y - 1), 2)
+
+        # Stinger at the bottom — pointed triangle
+        stinger_pts = [
+            (cx - 4, rect.bottom - 12),
+            (cx, rect.bottom - 2),
+            (cx + 4, rect.bottom - 12),
+        ]
+        stinger_col = (100, 30, 150) if not is_clone else (50, 15, 75)
+        pygame.draw.polygon(surface, stinger_col, stinger_pts)
+
+        # Shadow wisp on top of head (dark flame-like effect)
+        wisp_offset = int(math.sin(self.wing_phase * 1.5) * 3)
+        pygame.draw.line(surface, wing_col,
+                         (cx, rect.y + 10),
+                         (cx + wisp_offset, rect.y - 2), 3)
+        pygame.draw.line(surface, wing_col,
+                         (cx - 4, rect.y + 12),
+                         (cx - 4 + wisp_offset, rect.y + 2), 2)

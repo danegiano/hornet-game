@@ -13,6 +13,7 @@ class Platform:
         self.is_swamp = (color == (60, 100, 50))
         self.is_crystal = (color == (80, 60, 140))
         self.is_volcano = (color == (100, 50, 30))
+        self.is_shadow = (color == (50, 30, 70))
 
     def draw(self, screen, camera_x, time_ms=0):
         draw_rect = self.rect.move(-camera_x, 0)
@@ -165,3 +166,53 @@ class Platform:
                     # Orange-yellow ember
                     pygame.draw.circle(screen, (255, 150 + int(ember_cycle * 2), 0),
                                        (draw_rect.x + ex, ember_y), ember_size)
+
+        elif self.is_shadow:
+            import math
+            # Dark purple brick pattern
+            for bx in range(0, self.rect.width, 35):
+                pygame.draw.line(screen, (30, 15, 45),
+                                 (draw_rect.x + bx, draw_rect.y),
+                                 (draw_rect.x + bx, draw_rect.bottom), 2)
+            for by in range(0, self.rect.height, 18):
+                pygame.draw.line(screen, (30, 15, 45),
+                                 (draw_rect.x, draw_rect.y + by),
+                                 (draw_rect.right, draw_rect.y + by), 2)
+
+            # Glowing purple cracks across the surface
+            for cx in range(8, self.rect.width, 30):
+                world_x = self.rect.x + cx
+                crack_len = 10 + (world_x * 3 % 8)
+                crack_dip = 2 + (world_x * 5 % 4)
+                glow_pulse = math.sin(time_ms / 400.0 + world_x * 0.1) * 0.4 + 0.6
+                glow_r = int(120 * glow_pulse)
+                glow_g = int(40 * glow_pulse)
+                glow_b = int(180 * glow_pulse)
+                pygame.draw.line(screen, (glow_r, glow_g, glow_b),
+                                 (draw_rect.x + cx, draw_rect.y + 3),
+                                 (draw_rect.x + min(cx + crack_len, self.rect.width),
+                                  draw_rect.y + crack_dip), 2)
+
+            # Purple spark/lightning effects (occasional flickers)
+            for sx in range(20, self.rect.width, 50):
+                world_x = self.rect.x + sx
+                spark_chance = math.sin(time_ms / 100.0 + world_x * 2.3) * 0.5 + 0.5
+                if spark_chance > 0.85:
+                    spark_y = draw_rect.y + (world_x * 7 % max(1, self.rect.height - 4))
+                    # Bright purple spark
+                    pygame.draw.circle(screen, (180, 80, 255),
+                                       (draw_rect.x + sx, spark_y), 3)
+                    pygame.draw.circle(screen, (255, 200, 255),
+                                       (draw_rect.x + sx, spark_y), 1)
+
+            # Shadowy wisps floating off the top edge
+            for wx in range(12, self.rect.width, 35):
+                world_x = self.rect.x + wx
+                wisp_cycle = (time_ms / 12.0 + world_x * 4) % 35
+                wisp_y = draw_rect.y - int(wisp_cycle)
+                wisp_size = max(1, 3 - int(wisp_cycle / 12))
+                if wisp_cycle < 30:
+                    wisp_alpha = int(150 * (1.0 - wisp_cycle / 30.0))
+                    wisp_surf = pygame.Surface((wisp_size * 2, wisp_size * 2), pygame.SRCALPHA)
+                    wisp_surf.fill((80, 30, 120, wisp_alpha))
+                    screen.blit(wisp_surf, (draw_rect.x + wx - wisp_size, wisp_y - wisp_size))

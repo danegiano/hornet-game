@@ -78,6 +78,16 @@ LEVEL_THEMES = {
         {"bg": (40, 10, 5),   "platform": (100, 50, 30), "name": "Ash Wastes"},
         {"bg": (30, 5, 5),    "platform": (100, 50, 30), "name": "Moth's Furnace"},
     ],
+    # Island 4 — The Shadow Fortress
+    4: [
+        {"bg": (20, 10, 30),  "platform": (50, 30, 70),  "name": "Shadow Gate"},
+        {"bg": (18, 8, 28),   "platform": (50, 30, 70),  "name": "Dark Corridor"},
+        {"bg": (15, 6, 25),   "platform": (50, 30, 70),  "name": "Phantom Hall"},
+        {"bg": (12, 5, 22),   "platform": (50, 30, 70),  "name": "Nightmare Chamber"},
+        {"bg": (10, 4, 20),   "platform": (50, 30, 70),  "name": "Void Passage"},
+        {"bg": (8, 3, 18),    "platform": (50, 30, 70),  "name": "Eclipse Sanctum"},
+        {"bg": (5, 2, 15),    "platform": (50, 30, 70),  "name": "Shadow Hornet's Throne"},
+    ],
 }
 
 # Swamp platform color constant
@@ -88,6 +98,9 @@ CRYSTAL_PURPLE = (80, 60, 140)
 
 # Volcano platform color constant
 VOLCANO_BROWN = (100, 50, 30)
+
+# Shadow fortress platform color constant
+SHADOW_PURPLE = (50, 30, 70)
 
 # Player constants
 PLAYER_WIDTH = 32

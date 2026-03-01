@@ -4,7 +4,7 @@ import sys
 from src.settings import *
 from src.entities.player import Player
 from src.entities.enemies import Wasp, Fly, Spider
-from src.entities.bosses import WaspKing, SwampBeetleLord, CrystalSpiderQueen, FireMoth
+from src.entities.bosses import WaspKing, SwampBeetleLord, CrystalSpiderQueen, FireMoth, ShadowHornet
 from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
@@ -107,6 +107,8 @@ def main():
             bg = ParallaxBackground("cave")
         elif current_island == 3:
             bg = ParallaxBackground("volcano")
+        elif current_island == 4:
+            bg = ParallaxBackground("shadow")
         else:
             bg = ParallaxBackground(current_level_in_island % 3)
 
@@ -120,6 +122,8 @@ def main():
                 boss = CrystalSpiderQueen(2100, 350)  # Floats in the arena
             elif current_island == 3:
                 boss = FireMoth(2500, 300)  # Flies around the volcano arena
+            elif current_island == 4:
+                boss = ShadowHornet(2800, 350)  # The final boss!
             else:
                 boss = WaspKing(2000, 540 - 90)  # Placeholder for future islands
         else:
@@ -205,9 +209,9 @@ def main():
                 boss.update(player, platforms)
                 # Boss attack sounds
                 if boss.state != prev_boss_state:
-                    if boss.state in ("charge", "flame_dash") and "boss_charge" in sounds:
+                    if boss.state in ("charge", "flame_dash", "shadow_charge", "shadow_stinger") and "boss_charge" in sounds:
                         sounds["boss_charge"].play()
-                    elif boss.state in ("slam", "stomp", "ceiling_drop", "fireball_rain") and "boss_slam" in sounds:
+                    elif boss.state in ("slam", "stomp", "ceiling_drop", "fireball_rain", "teleport_strike") and "boss_slam" in sounds:
                         sounds["boss_slam"].play()
                     prev_boss_state = boss.state
                 # Add summoned flies/spiders to enemy list
@@ -234,12 +238,29 @@ def main():
                             if keys_now[pygame.K_RIGHT] or keys_now[pygame.K_d]:
                                 player.rect.x -= 2  # Counter half the movement
                 # Fire Moth — burning patches, fire trail, and flame wall damage
+                # Shadow Hornet — stinger hitbox damage
                 if hasattr(boss, 'get_all_damage_rects'):
-                    for fire_rect in boss.get_all_damage_rects():
-                        if player.rect.colliderect(fire_rect):
+                    for dmg_rect in boss.get_all_damage_rects():
+                        if player.rect.colliderect(dmg_rect):
                             if player.take_damage(1):
                                 player.vel_y = -8
-                            break  # Only take one hit per frame from fire
+                            break  # Only take one hit per frame
+
+                # Shadow Hornet — clone contact damage + player can attack clones
+                if hasattr(boss, 'clones'):
+                    for clone in boss.clones[:]:
+                        # Clones damage player on contact
+                        if player.rect.colliderect(clone["rect"]):
+                            if player.take_damage(1):
+                                if player.rect.centerx < clone["rect"].centerx:
+                                    player.rect.x -= 30
+                                else:
+                                    player.rect.x += 30
+                                player.vel_y = -8
+                        # Player can attack clones to destroy them
+                        if player.attacking and player.attack_rect:
+                            if player.attack_rect.colliderect(clone["rect"]):
+                                boss.clone_hit(clone)
 
             # Switch to boss music when entering boss arena
             if boss and boss.alive and not boss_music_started:
@@ -337,7 +358,7 @@ def main():
                 next_name = next_theme[0]["name"]
             draw_transition(screen, next_name)
         elif game_state == STATE_VICTORY:
-            draw_victory(screen)
+            draw_victory(screen, current_island)
 
         pygame.display.flip()
         clock.tick(FPS)

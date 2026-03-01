@@ -15,6 +15,7 @@ class ParallaxBackground:
         "swamp":   ((40, 60, 35),    "bg_swamp"),
         "cave":    ((20, 12, 40),    "bg_cave"),
         "volcano": ((80, 30, 10),    "bg_volcano"),
+        "shadow":  ((20, 10, 30),    "bg_shadow"),
     }
 
     def __init__(self, level_or_theme):

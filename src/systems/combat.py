@@ -18,8 +18,9 @@ def handle_combat(player, enemies, boss=None):
                     death_positions.append((enemy.rect.centerx, enemy.rect.y, 2))
                 else:
                     hit_events.append("hit_enemy")
-        # Player attack hits boss
-        if boss and boss.alive and player.attack_rect.colliderect(boss.rect):
+        # Player attack hits boss (skip if boss is invisible during teleport)
+        boss_visible = getattr(boss, 'teleport_visible', True)
+        if boss and boss.alive and boss_visible and player.attack_rect.colliderect(boss.rect):
             boss.take_damage(damage)
             if not boss.alive:
                 hit_events.append("boss_die")
@@ -39,8 +40,9 @@ def handle_combat(player, enemies, boss=None):
                 player.vel_y = -8  # Small bounce up
                 hit_events.append("player_hurt")
 
-    # Boss damages player
-    if boss and boss.alive:
+    # Boss damages player (skip if boss is invisible during teleport)
+    boss_visible = getattr(boss, 'teleport_visible', True) if boss else True
+    if boss and boss.alive and boss_visible:
         if player.rect.colliderect(boss.rect):
             if player.take_damage(1):
                 if player.rect.centerx < boss.rect.centerx:
