@@ -95,6 +95,7 @@ class Player:
         self.attack_rect = None
         self.hp = PLAYER_MAX_HP
         self.invincible_timer = 0
+        self.just_jumped = False
 
     def update(self, keys, platforms):
         # Invincibility timer
@@ -142,6 +143,9 @@ class Player:
         if keys[pygame.K_SPACE] and self.on_ground:
             self.vel_y = JUMP_POWER  # A negative value shoots the player upward
             self.on_ground = False
+            self.just_jumped = True
+        else:
+            self.just_jumped = False
 
         # --- Hover (hold space while in the air) ---
         # All four conditions must be true to hover:
@@ -869,6 +873,8 @@ def main():
         else:
             boss = None
 
+    hover_channel = None
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -891,10 +897,26 @@ def main():
                         game_state = STATE_TITLE
                 if event.key in (pygame.K_z, pygame.K_x) and game_state == STATE_PLAYING:
                     player.start_attack()
+                    if "attack" in sounds:
+                        sounds["attack"].play()
 
         if game_state == STATE_PLAYING:
             keys = pygame.key.get_pressed()
             player.update(keys, platforms)
+
+            # Jump sound — fires the frame the player leaves the ground
+            if player.just_jumped and "jump" in sounds:
+                sounds["jump"].play()
+
+            # Hover sound — loop while hovering, stop when done
+            if player.is_hovering and "hover" in sounds:
+                if hover_channel is None or not hover_channel.get_busy():
+                    hover_channel = sounds["hover"].play(-1)
+            else:
+                if hover_channel and hover_channel.get_busy():
+                    hover_channel.stop()
+                    hover_channel = None
+
             for enemy in enemies:
                 if isinstance(enemy, Spider):
                     enemy.update(player.rect.centerx)
