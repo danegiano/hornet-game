@@ -229,6 +229,7 @@ class Platform:
 
 RED = (200, 50, 50)
 GREEN = (50, 200, 50)
+PURPLE = (150, 50, 200)
 
 class Enemy:
     def __init__(self, x, y, width, height, hp, color):
@@ -309,6 +310,50 @@ class Fly(Enemy):
         self.rect.y = self.base_y + int(math.sin(self.wave_offset) * 30)
 
 
+class Spider(Enemy):
+    def __init__(self, x, y, patrol_left, patrol_right):
+        super().__init__(x, y, 28, 28, 1, PURPLE)
+        self.home_x = x
+        self.speed = 6
+        self.lunge_range = 150
+        self.lunging = False
+        self.lunge_target_x = 0
+        self.returning = False
+        self.patrol_left = patrol_left
+        self.patrol_right = patrol_right
+
+    def update(self, player_x=None):
+        if not self.alive:
+            if self.death_timer > 0:
+                self.death_timer -= 1
+            return
+
+        if self.lunging:
+            if self.rect.centerx < self.lunge_target_x:
+                self.rect.x += self.speed
+                if self.rect.centerx >= self.lunge_target_x:
+                    self.lunging = False
+                    self.returning = True
+            else:
+                self.rect.x -= self.speed
+                if self.rect.centerx <= self.lunge_target_x:
+                    self.lunging = False
+                    self.returning = True
+        elif self.returning:
+            if abs(self.rect.x - self.home_x) < 3:
+                self.rect.x = self.home_x
+                self.returning = False
+            elif self.rect.x < self.home_x:
+                self.rect.x += self.speed * 0.5
+            else:
+                self.rect.x -= self.speed * 0.5
+        elif player_x is not None:
+            dist = abs(self.rect.centerx - player_x)
+            if dist < self.lunge_range:
+                self.lunging = True
+                self.lunge_target_x = player_x
+
+
 def create_level(level_num):
     """Return (platforms, enemies) for the given level number (0-indexed)."""
     theme = LEVEL_THEMES[level_num]
@@ -370,8 +415,10 @@ def create_level(level_num):
         ]
         enemies = [
             Beetle(100, 540 - 24, 50, 250),
+            Spider(450, 350 - 28, 400, 530),
             Fly(600, 380, 550, 750),
             Beetle(750, 540 - 24, 700, 830),
+            Spider(950, 380 - 28, 900, 1050),
             Fly(1100, 250, 1050, 1250),
             Beetle(1400, 540 - 24, 1350, 1530),
         ]
@@ -515,7 +562,10 @@ def main():
             keys = pygame.key.get_pressed()
             player.update(keys, platforms)
             for enemy in enemies:
-                enemy.update()
+                if isinstance(enemy, Spider):
+                    enemy.update(player.rect.centerx)
+                else:
+                    enemy.update()
             handle_combat(player, enemies)
             camera.update(player)
 
