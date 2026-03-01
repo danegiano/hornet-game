@@ -26,6 +26,9 @@ ATTACK_WIDTH = 10
 ATTACK_DURATION = 10   # Frames the attack hitbox is active
 ATTACK_COOLDOWN = 20   # Frames before you can attack again
 
+PLAYER_MAX_HP = 5
+INVINCIBILITY_FRAMES = 60  # 1 second of invincibility after hit
+
 YELLOW = (255, 220, 50)
 DARK_YELLOW = (200, 170, 0)
 
@@ -48,8 +51,14 @@ class Player:
         self.attack_timer = 0
         self.attack_cooldown = 0
         self.attack_rect = None
+        self.hp = PLAYER_MAX_HP
+        self.invincible_timer = 0
 
     def update(self, keys, platforms):
+        # Invincibility timer
+        if self.invincible_timer > 0:
+            self.invincible_timer -= 1
+
         # --- Horizontal movement ---
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.rect.x += PLAYER_SPEED
@@ -113,6 +122,13 @@ class Player:
                 self.attack_rect.x = self.rect.left - ATTACK_RANGE
                 self.attack_rect.y = self.rect.top - 5
 
+    def take_damage(self, amount):
+        if self.invincible_timer <= 0:
+            self.hp -= amount
+            self.invincible_timer = INVINCIBILITY_FRAMES
+            return True
+        return False
+
     def start_attack(self):
         # Only start a new attack if we're not already attacking and cooldown is done
         if self.attack_cooldown <= 0 and not self.attacking:
@@ -132,6 +148,10 @@ class Player:
                 )
 
     def draw(self, screen, camera_x):
+        # Flash when invincible (skip drawing every other frame)
+        if self.invincible_timer > 0 and self.invincible_timer % 4 < 2:
+            return
+
         # Shift the player's draw position left by camera_x so it moves with the world
         draw_rect = self.rect.move(-camera_x, 0)
 
@@ -193,6 +213,26 @@ class Platform:
         pygame.draw.rect(screen, self.color, draw_rect)
 
 
+def draw_hud(screen, player, level_name):
+    # Health bar background
+    pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
+    # Health bar fill
+    hp_width = int(100 * player.hp / PLAYER_MAX_HP)
+    color = (50, 200, 50) if player.hp > 2 else (200, 50, 50)
+    pygame.draw.rect(screen, color, (12, 12, hp_width, 12))
+
+    # Hover meter background
+    pygame.draw.rect(screen, (80, 80, 80), (10, 32, 104, 10))
+    # Hover meter fill
+    hover_width = int(100 * player.hover_fuel / HOVER_MAX)
+    pygame.draw.rect(screen, (100, 180, 255), (12, 34, hover_width, 6))
+
+    # Level name
+    font = pygame.font.Font(None, 28)
+    text = font.render(level_name, True, WHITE)
+    screen.blit(text, (SCREEN_WIDTH - text.get_width() - 10, 10))
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -241,6 +281,8 @@ def main():
 
         # Draw the player on top of everything, also offset by camera
         player.draw(screen, camera.x)
+
+        draw_hud(screen, player, "Level 1: The Garden")
 
         pygame.display.flip()
         clock.tick(FPS)
