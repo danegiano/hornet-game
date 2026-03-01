@@ -13,6 +13,7 @@ from src.systems.powers import ISLAND_POWER
 from src.save_data import SaveData
 from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
+from src.ui.island_map import IslandMap
 
 
 def apply_powers(player, save_data):
@@ -67,6 +68,11 @@ def main():
     game_state = STATE_TITLE
     current_level = 0
 
+    # Island map tracking
+    current_island = 0
+    current_level_in_island = 0
+    island_map = None
+
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
     enemies = []
@@ -78,15 +84,32 @@ def main():
     coin_manager = CoinManager()
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
+        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager, current_level
         coin_manager = CoinManager()
-        platforms, enemies = create_level(current_level)
+
+        # Map island + level-in-island to a create_level() index.
+        # Island 0 has real levels: 0, 1, 2.  Other islands reuse them as placeholders.
+        island_info = ISLAND_DATA[current_island]
+        is_boss_level = (current_level_in_island == island_info["levels"] - 1)
+
+        if current_island == 0:
+            # Island 0's three levels map directly
+            level_index = current_level_in_island
+        else:
+            # Placeholder: cycle through existing levels for other islands
+            level_index = current_level_in_island % 3
+
+        # Keep current_level in sync so LEVEL_THEMES indexing still works
+        current_level = level_index
+
+        platforms, enemies = create_level(level_index)
         player = Player(50, 400)
         apply_powers(player, save_data)  # Give the player any powers they've unlocked
         camera = Camera()
-        bg = ParallaxBackground(current_level)
-        # Spawn boss on level 3 (index 2)
-        if current_level == 2:
+        bg = ParallaxBackground(level_index)
+
+        # Spawn boss on the LAST level of each island
+        if is_boss_level:
             boss = WaspKing(2000, 540 - 90)  # In the boss arena
         else:
             boss = None
@@ -102,24 +125,37 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            # Island map gets events first (it handles its own keys)
+            if game_state == STATE_ISLAND_MAP and island_map:
+                result = island_map.handle_input(event)
+                if result is not None:
+                    if isinstance(result, tuple) and result[0] == "play":
+                        current_island = result[1]
+                        current_level_in_island = 0
+                        start_level()
+                        game_state = STATE_PLAYING
+                        play_music("level_music")
+                    elif result == "shop":
+                        print("Shop coming soon!")  # Task 14 will add the shop
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     if game_state == STATE_TITLE:
-                        current_level = 0
-                        start_level()
-                        game_state = STATE_PLAYING
-                        play_music("level_music")
+                        # Title -> Island Map
+                        island_map = IslandMap(save_data)
+                        game_state = STATE_ISLAND_MAP
                     elif game_state == STATE_GAME_OVER:
-                        start_level()
-                        game_state = STATE_PLAYING
-                        play_music("level_music")
+                        # Death -> back to island map (keep coins)
+                        island_map = IslandMap(save_data)
+                        game_state = STATE_ISLAND_MAP
                     elif game_state == STATE_LEVEL_TRANSITION:
                         start_level()
                         game_state = STATE_PLAYING
                         play_music("level_music")
                     elif game_state == STATE_VICTORY:
-                        current_level = 0
-                        game_state = STATE_TITLE
+                        # Victory -> back to island map
+                        island_map = IslandMap(save_data)
+                        game_state = STATE_ISLAND_MAP
                 if event.key in (pygame.K_z, pygame.K_x) and game_state == STATE_PLAYING:
                     player.start_attack()
                     if "attack" in sounds:
@@ -160,8 +196,8 @@ def main():
                 if boss.summoned_flies:
                     enemies.extend(boss.summoned_flies)
                     boss.summoned_flies = []
-            # Switch to boss music when entering arena on level 3
-            if current_level == 2 and boss and boss.alive and not boss_music_started:
+            # Switch to boss music when entering boss arena
+            if boss and boss.alive and not boss_music_started:
                 if player.rect.x > 1700:
                     play_music("boss_music")
                     boss_music_started = True
@@ -188,19 +224,27 @@ def main():
                     hover_channel = None
 
             # Check for level complete or boss defeat
-            if current_level == 2 and boss and not boss.alive:
-                # Unlock the power for this island's boss
-                power = ISLAND_POWER.get(0)  # island 0 for now, will change with island map
+            island_info = ISLAND_DATA[current_island]
+            is_boss_level = (current_level_in_island == island_info["levels"] - 1)
+
+            if is_boss_level and boss and not boss.alive:
+                # Boss defeated! Save progress, grant power, unlock next island
+                save_data.complete_level(current_island, current_level_in_island)
+                power = ISLAND_POWER.get(current_island)
                 if power:
                     save_data.unlock_power(power)
-                    save_data.save()
+                save_data.max_island_unlocked = min(current_island + 1, 4)
+                save_data.save()
                 game_state = STATE_VICTORY
                 stop_music()
                 if hover_channel and hover_channel.get_busy():
                     hover_channel.stop()
                     hover_channel = None
-            elif current_level < 2 and check_level_complete(player, enemies):
-                current_level += 1
+            elif not is_boss_level and check_level_complete(player, enemies):
+                # Non-boss level complete — advance to next level in this island
+                save_data.complete_level(current_island, current_level_in_island)
+                save_data.save()
+                current_level_in_island += 1
                 game_state = STATE_LEVEL_TRANSITION
                 stop_music()
                 if "level_complete" in sounds:
@@ -226,6 +270,8 @@ def main():
             draw_hud(screen, player, LEVEL_THEMES[current_level]["name"], save_data.coins)
             if boss and boss.alive:
                 draw_boss_hp(screen, boss)
+        elif game_state == STATE_ISLAND_MAP:
+            island_map.draw(screen)
         elif game_state == STATE_GAME_OVER:
             draw_game_over(screen)
         elif game_state == STATE_LEVEL_TRANSITION:

@@ -32,6 +32,19 @@ STATE_LEVEL_TRANSITION = "transition"
 STATE_GAME_OVER = "game_over"
 STATE_VICTORY = "victory"
 
+# New game states for island system
+STATE_ISLAND_MAP = "island_map"
+STATE_LEVEL_SELECT = "level_select"
+
+# Island data — each island has a name, number of levels, and theme color
+ISLAND_DATA = [
+    {"name": "The Garden Isles",    "levels": 3, "color": (100, 180, 100), "bg": (135, 200, 235)},
+    {"name": "The Swamp",           "levels": 4, "color": (80, 120, 60),   "bg": (60, 80, 40)},
+    {"name": "The Crystal Caves",   "levels": 5, "color": (100, 80, 200),  "bg": (40, 30, 80)},
+    {"name": "The Volcano",         "levels": 6, "color": (200, 80, 40),   "bg": (80, 30, 10)},
+    {"name": "The Shadow Fortress", "levels": 7, "color": (80, 40, 120),   "bg": (30, 10, 40)},
+]
+
 # Level themes — background color, platform color, and display name
 LEVEL_THEMES = [
     {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "Level 1: The Garden"},
