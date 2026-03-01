@@ -213,6 +213,56 @@ class Platform:
         pygame.draw.rect(screen, self.color, draw_rect)
 
 
+RED = (200, 50, 50)
+
+class Enemy:
+    def __init__(self, x, y, width, height, hp, color):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.hp = hp
+        self.color = color
+        self.alive = True
+        self.death_timer = 0  # Flash timer when killed
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        if self.hp <= 0:
+            self.alive = False
+            self.death_timer = 15  # Brief flash before disappearing
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            if self.death_timer > 0:
+                # Flash white when dying
+                draw_rect = self.rect.move(-camera_x, 0)
+                pygame.draw.rect(screen, WHITE, draw_rect)
+            return
+        draw_rect = self.rect.move(-camera_x, 0)
+        pygame.draw.rect(screen, self.color, draw_rect)
+
+class Beetle(Enemy):
+    def __init__(self, x, y, patrol_left, patrol_right):
+        super().__init__(x, y, 36, 24, 2, RED)
+        self.speed = 1.5
+        self.patrol_left = patrol_left
+        self.patrol_right = patrol_right
+        self.moving_right = True
+
+    def update(self):
+        if not self.alive:
+            if self.death_timer > 0:
+                self.death_timer -= 1
+            return
+
+        if self.moving_right:
+            self.rect.x += self.speed
+            if self.rect.right >= self.patrol_right:
+                self.moving_right = False
+        else:
+            self.rect.x -= self.speed
+            if self.rect.left <= self.patrol_left:
+                self.moving_right = True
+
+
 def draw_hud(screen, player, level_name):
     # Health bar background
     pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
@@ -247,6 +297,11 @@ def main():
         Platform(800, 400, 200, 20),                   # Another platform
     ]
 
+    enemies = [
+        Beetle(400, SCREEN_HEIGHT - 60 - 24, 350, 550),
+        Beetle(700, SCREEN_HEIGHT - 60 - 24, 650, 900),
+    ]
+
     # Create the player, positioned just above the ground platform
     player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
 
@@ -271,6 +326,10 @@ def main():
         # Update the camera to follow the player
         camera.update(player)
 
+        # Update all enemies (movement, death timer)
+        for enemy in enemies:
+            enemy.update()
+
         # --- Drawing ---
         # Light blue sky background
         screen.fill((135, 200, 235))
@@ -278,6 +337,10 @@ def main():
         # Draw all platforms, offset by the camera position
         for p in platforms:
             p.draw(screen, camera.x)
+
+        # Draw enemies on top of platforms, below the player
+        for enemy in enemies:
+            enemy.draw(screen, camera.x)
 
         # Draw the player on top of everything, also offset by camera
         player.draw(screen, camera.x)
