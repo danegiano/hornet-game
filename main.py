@@ -17,7 +17,6 @@ PLAYER_HEIGHT = 30
 PLAYER_SPEED = 5
 GRAVITY = 0.8
 JUMP_POWER = -15
-GROUND_Y = SCREEN_HEIGHT - 60  # Temporary ground line
 
 HOVER_MAX = 60        # Frames of hover time (~1 second at 60fps)
 HOVER_GRAVITY = 0.15  # Much slower fall while hovering
@@ -41,7 +40,7 @@ class Player:
         # is_hovering is True while the player is actively slowing their fall
         self.is_hovering = False
 
-    def update(self, keys):
+    def update(self, keys, platforms):
         # --- Horizontal movement ---
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.rect.x += PLAYER_SPEED
@@ -71,14 +70,19 @@ class Player:
 
         self.rect.y += self.vel_y
 
-        # --- Temporary ground collision ---
-        if self.rect.bottom >= GROUND_Y:
-            self.rect.bottom = GROUND_Y  # Snap the player back to the ground
-            self.vel_y = 0               # Stop falling
-            self.on_ground = True
-            self.hover_fuel = HOVER_MAX  # Refill hover fuel on landing
-        else:
-            self.on_ground = False
+        # --- Platform collision (vertical) ---
+        # Reset on_ground each frame — we'll set it back to True if we land
+        self.on_ground = False
+        for platform in platforms:
+            if self.rect.colliderect(platform.rect):
+                if self.vel_y > 0:  # Falling down onto the platform
+                    self.rect.bottom = platform.rect.top
+                    self.vel_y = 0
+                    self.on_ground = True
+                    self.hover_fuel = HOVER_MAX  # Refill hover fuel on landing
+                elif self.vel_y < 0:  # Jumping up into the bottom of a platform
+                    self.rect.top = platform.rect.bottom
+                    self.vel_y = 0
 
     def draw(self, screen):
         # Draw the yellow body rectangle
@@ -113,14 +117,33 @@ class Player:
         pygame.draw.polygon(screen, DARK_YELLOW, stinger_points)
 
 
+class Platform:
+    def __init__(self, x, y, width, height, color=(100, 180, 100)):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.color = color
+
+    def draw(self, screen, camera_x):
+        # Shift the platform left by camera_x so it scrolls with the world
+        draw_rect = self.rect.move(-camera_x, 0)
+        pygame.draw.rect(screen, self.color, draw_rect)
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
 
-    # Create the player, positioned just above the ground
-    player = Player(100, GROUND_Y - PLAYER_HEIGHT)
+    # Platform list — the ground is just a very wide platform at the bottom
+    platforms = [
+        Platform(0, SCREEN_HEIGHT - 60, 2000, 60),   # Long ground
+        Platform(300, 420, 150, 20),                   # Floating platform
+        Platform(550, 340, 150, 20),                   # Higher platform
+        Platform(800, 400, 200, 20),                   # Another platform
+    ]
+
+    # Create the player, positioned just above the ground platform
+    player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
 
     running = True
     while running:
@@ -132,18 +155,15 @@ def main():
         keys = pygame.key.get_pressed()
 
         # Update the player (movement, gravity, collisions)
-        player.update(keys)
+        player.update(keys, platforms)
 
         # --- Drawing ---
         # Light blue sky background
         screen.fill((135, 200, 235))
 
-        # Temporary green ground
-        pygame.draw.rect(
-            screen,
-            (100, 180, 100),
-            (0, GROUND_Y, SCREEN_WIDTH, SCREEN_HEIGHT - GROUND_Y)
-        )
+        # Draw all platforms (camera_x=0 for now, Task 5 will make it scroll)
+        for p in platforms:
+            p.draw(screen, 0)
 
         # Draw the player on top of everything
         player.draw(screen)
