@@ -23,75 +23,9 @@ from src.entities.bosses import WaspKing
 from src.world.levels import create_level, check_level_complete
 
 
-def draw_hud(screen, player, level_name):
-    # Health bar background
-    pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
-    # Health bar fill
-    hp_width = int(100 * player.hp / PLAYER_MAX_HP)
-    color = (50, 200, 50) if player.hp > 2 else (200, 50, 50)
-    pygame.draw.rect(screen, color, (12, 12, hp_width, 12))
-
-    # Hover meter background
-    pygame.draw.rect(screen, (80, 80, 80), (10, 32, 104, 10))
-    # Hover meter fill
-    hover_width = int(100 * player.hover_fuel / HOVER_MAX)
-    pygame.draw.rect(screen, (100, 180, 255), (12, 34, hover_width, 6))
-
-    # Level name
-    font = pygame.font.Font(None, 28)
-    text = font.render(level_name, True, WHITE)
-    screen.blit(text, (SCREEN_WIDTH - text.get_width() - 10, 10))
-
-
-def draw_title_screen(screen):
-    screen.fill(BLACK)
-    font_big = pygame.font.Font(None, 80)
-    font_small = pygame.font.Font(None, 36)
-    title = font_big.render("HORNET", True, YELLOW)
-    prompt = font_small.render("Press ENTER to start", True, WHITE)
-    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 200))
-    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 350))
-
-def draw_game_over(screen):
-    screen.fill(BLACK)
-    font_big = pygame.font.Font(None, 64)
-    font_small = pygame.font.Font(None, 36)
-    title = font_big.render("GAME OVER", True, RED)
-    prompt = font_small.render("Press ENTER to retry", True, WHITE)
-    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 220))
-    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
-
-def draw_transition(screen, level_name):
-    screen.fill(BLACK)
-    font_big = pygame.font.Font(None, 56)
-    font_small = pygame.font.Font(None, 36)
-    title = font_big.render(level_name, True, WHITE)
-    prompt = font_small.render("Press ENTER to continue", True, (180, 180, 180))
-    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 240))
-    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
-
-def draw_victory(screen):
-    screen.fill(BLACK)
-    font_big = pygame.font.Font(None, 56)
-    font_small = pygame.font.Font(None, 36)
-    title = font_big.render("You defeated the Wasp King!", True, YELLOW)
-    prompt = font_small.render("Press ENTER to play again", True, WHITE)
-    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 240))
-    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
-
-
 from src.systems.combat import handle_combat
-
-
-def draw_boss_hp(screen, boss):
-    bar_width = 300
-    bar_x = SCREEN_WIDTH // 2 - bar_width // 2
-    pygame.draw.rect(screen, (80, 80, 80), (bar_x - 2, 10, bar_width + 4, 22))
-    hp_width = int(bar_width * boss.hp / boss.max_hp)
-    pygame.draw.rect(screen, ORANGE, (bar_x, 12, hp_width, 18))
-    font = pygame.font.Font(None, 24)
-    label = font.render("WASP KING", True, WHITE)
-    screen.blit(label, (SCREEN_WIDTH // 2 - label.get_width() // 2, 36))
+from src.ui.hud import draw_hud, draw_boss_hp
+from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
 
 
 def main():
