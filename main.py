@@ -21,6 +21,11 @@ JUMP_POWER = -15
 HOVER_MAX = 60        # Frames of hover time (~1 second at 60fps)
 HOVER_GRAVITY = 0.15  # Much slower fall while hovering
 
+ATTACK_RANGE = 50
+ATTACK_WIDTH = 10
+ATTACK_DURATION = 10   # Frames the attack hitbox is active
+ATTACK_COOLDOWN = 20   # Frames before you can attack again
+
 YELLOW = (255, 220, 50)
 DARK_YELLOW = (200, 170, 0)
 
@@ -39,6 +44,10 @@ class Player:
         self.hover_fuel = HOVER_MAX
         # is_hovering is True while the player is actively slowing their fall
         self.is_hovering = False
+        self.attacking = False
+        self.attack_timer = 0
+        self.attack_cooldown = 0
+        self.attack_rect = None
 
     def update(self, keys, platforms):
         # --- Horizontal movement ---
@@ -84,6 +93,44 @@ class Player:
                     self.rect.top = platform.rect.bottom
                     self.vel_y = 0
 
+        # Attack cooldown — counts down every frame until you can attack again
+        if self.attack_cooldown > 0:
+            self.attack_cooldown -= 1
+
+        # Attack timer — counts down while the hitbox is active
+        if self.attacking:
+            self.attack_timer -= 1
+            if self.attack_timer <= 0:
+                self.attacking = False
+                self.attack_rect = None
+
+        # Keep the attack hitbox glued to the player while attacking
+        if self.attacking and self.attack_rect:
+            if self.facing_right:
+                self.attack_rect.x = self.rect.right
+                self.attack_rect.y = self.rect.top - 5
+            else:
+                self.attack_rect.x = self.rect.left - ATTACK_RANGE
+                self.attack_rect.y = self.rect.top - 5
+
+    def start_attack(self):
+        # Only start a new attack if we're not already attacking and cooldown is done
+        if self.attack_cooldown <= 0 and not self.attacking:
+            self.attacking = True
+            self.attack_timer = ATTACK_DURATION
+            self.attack_cooldown = ATTACK_COOLDOWN
+            # Create a hitbox rectangle in front of the player
+            if self.facing_right:
+                self.attack_rect = pygame.Rect(
+                    self.rect.right, self.rect.top - 5,
+                    ATTACK_RANGE, self.rect.height + 10
+                )
+            else:
+                self.attack_rect = pygame.Rect(
+                    self.rect.left - ATTACK_RANGE, self.rect.top - 5,
+                    ATTACK_RANGE, self.rect.height + 10
+                )
+
     def draw(self, screen, camera_x):
         # Shift the player's draw position left by camera_x so it moves with the world
         draw_rect = self.rect.move(-camera_x, 0)
@@ -112,6 +159,15 @@ class Player:
 
         tip = (tip_x, draw_rect.centery)
         pygame.draw.polygon(screen, DARK_YELLOW, [tip, base_top, base_bot])
+
+        # --- Attack visual ---
+        # When attacking, show a semi-transparent yellow flash where the hitbox is
+        if self.attacking and self.attack_rect:
+            atk_draw = self.attack_rect.move(-camera_x, 0)
+            # SRCALPHA means the surface supports transparency
+            attack_surface = pygame.Surface((atk_draw.width, atk_draw.height), pygame.SRCALPHA)
+            attack_surface.fill((255, 255, 200, 120))  # Semi-transparent yellow
+            screen.blit(attack_surface, atk_draw)
 
 
 class Camera:
@@ -162,6 +218,9 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_z, pygame.K_x):
+                    player.start_attack()
 
         # Read which keys are currently held down
         keys = pygame.key.get_pressed()
