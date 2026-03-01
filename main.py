@@ -18,6 +18,12 @@ STATE_LEVEL_TRANSITION = "transition"
 STATE_GAME_OVER = "game_over"
 STATE_VICTORY = "victory"
 
+LEVEL_THEMES = [
+    {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "Level 1: The Garden"},
+    {"bg": (180, 160, 80),  "platform": (160, 120, 60),  "name": "Level 2: The Hive"},
+    {"bg": (100, 40, 40),   "platform": (80, 80, 80),    "name": "Level 3: The Throne Room"},
+]
+
 # Player constants
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 30
@@ -270,6 +276,82 @@ class Beetle(Enemy):
                 self.moving_right = True
 
 
+def create_level(level_num):
+    """Return (platforms, enemies) for the given level number (0-indexed)."""
+    theme = LEVEL_THEMES[level_num]
+    color = theme["platform"]
+
+    if level_num == 0:  # The Garden
+        platforms = [
+            Platform(0, 540, 600, 60, color),
+            Platform(250, 440, 150, 20, color),
+            Platform(500, 380, 200, 20, color),
+            Platform(750, 540, 400, 60, color),
+            Platform(900, 440, 150, 20, color),
+            Platform(1200, 540, 600, 60, color),
+            Platform(1400, 420, 150, 20, color),
+            Platform(1700, 540, 400, 60, color),
+            Platform(2000, 540, 200, 60, color),
+        ]
+        enemies = [
+            Beetle(300, 540 - 24, 250, 500),
+            Beetle(800, 540 - 24, 750, 1050),
+            Beetle(1300, 540 - 24, 1200, 1500),
+            Beetle(1750, 540 - 24, 1700, 1950),
+        ]
+    elif level_num == 1:  # The Hive
+        platforms = [
+            Platform(0, 540, 300, 60, color),
+            Platform(200, 420, 120, 20, color),
+            Platform(400, 340, 120, 20, color),
+            Platform(550, 450, 150, 20, color),
+            Platform(750, 540, 200, 60, color),
+            Platform(850, 380, 120, 20, color),
+            Platform(1050, 300, 150, 20, color),
+            Platform(1250, 420, 120, 20, color),
+            Platform(1400, 540, 300, 60, color),
+            Platform(1600, 380, 150, 20, color),
+            Platform(1850, 540, 400, 60, color),
+        ]
+        enemies = [
+            Beetle(100, 540 - 24, 50, 250),
+            Beetle(800, 540 - 24, 750, 900),
+            Beetle(1500, 540 - 24, 1400, 1650),
+        ]
+    elif level_num == 2:  # The Throne Room
+        platforms = [
+            Platform(0, 540, 300, 60, color),
+            Platform(200, 420, 100, 20, color),
+            Platform(400, 350, 80, 20, color),
+            Platform(550, 440, 100, 20, color),
+            Platform(700, 540, 150, 60, color),
+            Platform(900, 380, 100, 20, color),
+            Platform(1050, 300, 100, 20, color),
+            Platform(1200, 420, 80, 20, color),
+            Platform(1350, 540, 200, 60, color),
+            Platform(1500, 400, 100, 20, color),
+            Platform(1700, 540, 800, 60, color),  # Boss arena
+        ]
+        enemies = [
+            Beetle(100, 540 - 24, 50, 250),
+            Beetle(750, 540 - 24, 700, 830),
+            Beetle(1400, 540 - 24, 1350, 1530),
+        ]
+    else:
+        platforms = []
+        enemies = []
+
+    return platforms, enemies
+
+
+def check_level_complete(player, enemies):
+    """Check if all enemies are dead and player reached end of level."""
+    all_dead = all(not e.alive and e.death_timer <= 0 for e in enemies)
+    # Player past the rightmost reasonable point
+    past_end = player.rect.x > 1900
+    return all_dead and past_end
+
+
 def draw_hud(screen, player, level_name):
     # Health bar background
     pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
@@ -354,7 +436,6 @@ def main():
 
     game_state = STATE_TITLE
     current_level = 0
-    level_names = ["Level 1: The Garden", "Level 2: The Hive", "Level 3: The Throne Room"]
 
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
@@ -364,17 +445,9 @@ def main():
 
     def start_level():
         nonlocal platforms, enemies, player, camera
-        platforms = [
-            Platform(0, SCREEN_HEIGHT - 60, 2000, 60),
-            Platform(300, 420, 150, 20),
-            Platform(550, 340, 150, 20),
-            Platform(800, 400, 200, 20),
-        ]
-        enemies = [
-            Beetle(400, SCREEN_HEIGHT - 60 - 24, 350, 550),
-            Beetle(700, SCREEN_HEIGHT - 60 - 24, 650, 900),
-        ]
-        player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
+        platforms, enemies = create_level(current_level)
+        player = Player(50, 400)
+        player.hp = PLAYER_MAX_HP
         camera = Camera()
 
     running = True
@@ -385,6 +458,7 @@ def main():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     if game_state == STATE_TITLE:
+                        current_level = 0
                         start_level()
                         game_state = STATE_PLAYING
                     elif game_state == STATE_GAME_OVER:
@@ -394,6 +468,7 @@ def main():
                         start_level()
                         game_state = STATE_PLAYING
                     elif game_state == STATE_VICTORY:
+                        current_level = 0
                         game_state = STATE_TITLE
                 if event.key in (pygame.K_z, pygame.K_x) and game_state == STATE_PLAYING:
                     player.start_attack()
@@ -410,21 +485,29 @@ def main():
             if player.hp <= 0:
                 game_state = STATE_GAME_OVER
 
+            # Check for level complete
+            if check_level_complete(player, enemies):
+                current_level += 1
+                if current_level >= 3:
+                    game_state = STATE_VICTORY
+                else:
+                    game_state = STATE_LEVEL_TRANSITION
+
         # Drawing
         if game_state == STATE_TITLE:
             draw_title_screen(screen)
         elif game_state == STATE_PLAYING:
-            screen.fill((135, 200, 235))
+            screen.fill(LEVEL_THEMES[current_level]["bg"])
             for p in platforms:
                 p.draw(screen, camera.x)
             for enemy in enemies:
                 enemy.draw(screen, camera.x)
             player.draw(screen, camera.x)
-            draw_hud(screen, player, level_names[current_level])
+            draw_hud(screen, player, LEVEL_THEMES[current_level]["name"])
         elif game_state == STATE_GAME_OVER:
             draw_game_over(screen)
         elif game_state == STATE_LEVEL_TRANSITION:
-            draw_transition(screen, level_names[current_level])
+            draw_transition(screen, LEVEL_THEMES[current_level]["name"])
         elif game_state == STATE_VICTORY:
             draw_victory(screen)
 
