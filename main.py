@@ -82,6 +82,10 @@ class Player:
             self.rect.x -= PLAYER_SPEED
             self.facing_right = False
 
+        # Don't go left off screen start
+        if self.rect.left < 0:
+            self.rect.left = 0
+
         # --- Jump ---
         if keys[pygame.K_SPACE] and self.on_ground:
             self.vel_y = JUMP_POWER  # A negative value shoots the player upward
@@ -116,6 +120,10 @@ class Player:
                 elif self.vel_y < 0:  # Jumping up into the bottom of a platform
                     self.rect.top = platform.rect.bottom
                     self.vel_y = 0
+
+        # Fall off screen = die
+        if self.rect.top > SCREEN_HEIGHT + 50:
+            self.hp = 0
 
         # Attack cooldown — counts down every frame until you can attack again
         if self.attack_cooldown > 0:
