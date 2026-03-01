@@ -4,7 +4,7 @@ import sys
 from src.settings import *
 from src.entities.player import Player
 from src.entities.enemies import Wasp, Fly, Spider
-from src.entities.bosses import WaspKing, SwampBeetleLord
+from src.entities.bosses import WaspKing, SwampBeetleLord, CrystalSpiderQueen
 from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
@@ -103,6 +103,8 @@ def main():
             bg = ParallaxBackground(current_level_in_island)
         elif current_island == 1:
             bg = ParallaxBackground("swamp")
+        elif current_island == 2:
+            bg = ParallaxBackground("cave")
         else:
             bg = ParallaxBackground(current_level_in_island % 3)
 
@@ -112,6 +114,8 @@ def main():
                 boss = WaspKing(2000, 540 - 90)
             elif current_island == 1:
                 boss = SwampBeetleLord(2000, 540 - 80)
+            elif current_island == 2:
+                boss = CrystalSpiderQueen(2100, 350)  # Floats in the arena
             else:
                 boss = WaspKing(2000, 540 - 90)  # Placeholder for future islands
         else:
@@ -199,13 +203,33 @@ def main():
                 if boss.state != prev_boss_state:
                     if boss.state == "charge" and "boss_charge" in sounds:
                         sounds["boss_charge"].play()
-                    elif boss.state == "slam" and "boss_slam" in sounds:
+                    elif boss.state in ("slam", "stomp", "ceiling_drop") and "boss_slam" in sounds:
                         sounds["boss_slam"].play()
                     prev_boss_state = boss.state
-                # Add summoned flies to enemy list
+                # Add summoned flies/spiders to enemy list
                 if boss.summoned_flies:
                     enemies.extend(boss.summoned_flies)
                     boss.summoned_flies = []
+                # Crystal Spider Queen projectile + web trap handling
+                if hasattr(boss, 'projectiles'):
+                    for proj in boss.projectiles:
+                        if player.rect.colliderect(proj["rect"]):
+                            if player.take_damage(1):
+                                player.vel_y = -8
+                            if proj in boss.projectiles:
+                                boss.projectiles.remove(proj)
+                if hasattr(boss, 'web_traps'):
+                    for trap in boss.web_traps:
+                        if player.rect.colliderect(trap["rect"]):
+                            # Slow the player temporarily (halve speed this frame)
+                            player.rect.x -= (player.rect.x - player.rect.x) * 0
+                            # Apply movement penalty by pulling player back
+                            keys_now = pygame.key.get_pressed()
+                            if keys_now[pygame.K_LEFT] or keys_now[pygame.K_a]:
+                                player.rect.x += 2  # Counter half the movement
+                            if keys_now[pygame.K_RIGHT] or keys_now[pygame.K_d]:
+                                player.rect.x -= 2  # Counter half the movement
+
             # Switch to boss music when entering boss arena
             if boss and boss.alive and not boss_music_started:
                 if player.rect.x > 1700:

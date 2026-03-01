@@ -1,7 +1,9 @@
 import pygame
 import os
+import math
+import random
 from src.settings import *
-from src.entities.enemies import Fly, Wasp
+from src.entities.enemies import Fly, Wasp, Spider
 
 
 class WaspKing:
@@ -407,3 +409,345 @@ class SwampBeetleLord:
                 wave_surf = pygame.Surface((sw.width, sw.height), pygame.SRCALPHA)
                 wave_surf.fill((100, 200, 50, 150))
                 screen.blit(wave_surf, sw)
+
+
+class CrystalSpiderQueen:
+    """Boss of Island 2: The Crystal Caves.
+
+    A giant purple crystal spider that hangs from the ceiling.
+    Attacks cycle through:
+      1. Web Trap — drops sticky web patches on platforms below.
+      2. Crystal Barrage — shoots 3-5 crystal projectiles in a spread.
+      3. Ceiling Drop — teleports up, pauses, then slams down on player.
+      4. Summon — spawns 2 spiders to help.
+    """
+
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 90, 90)
+        self.hp = 22
+        self.max_hp = 22
+        self.color = (120, 50, 180)  # Purple crystal spider
+        self.alive = True
+        self.vel_y = 0
+        self.vel_x = 0
+
+        # Attack pattern state
+        self.state = "idle"
+        self.state_timer = 0
+        self.pattern_index = 0
+        self.patterns = ["web_trap", "crystal_barrage", "ceiling_drop", "summon"]
+        self.idle_time = 60
+        self.speed_multiplier = 1.0
+
+        # Floating movement (side to side)
+        self.float_y = y         # The y we hover at
+        self.float_dir = 1       # 1 = moving right, -1 = moving left
+        self.float_speed = 1.5
+
+        # Web traps (sticky patches on platforms)
+        self.web_traps = []      # list of pygame.Rect for web patches
+
+        # Crystal projectiles
+        self.projectiles = []    # list of dicts: {rect, vel_x, vel_y}
+
+        # Ceiling drop
+        self.drop_target_x = 0
+        self.pre_drop_y = 0
+        self.shockwave = None
+        self.shockwave_timer = 0
+
+        # Summon (same interface as other bosses)
+        self.summoned_flies = []
+
+        # For combat.py compatibility (shockwave checks)
+        self.shockwave_left = None
+        self.shockwave_right = None
+
+        # Animation
+        self.anim_t = 0
+        self.anim_f = 0
+        self.facing_right = False
+
+        # Arena bounds
+        self.arena_left = None
+        self.arena_right = None
+
+        # Leg animation offset
+        self.leg_phase = 0
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        # Gets faster as HP drops
+        self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
+        if self.hp <= 0:
+            self.alive = False
+
+    def update(self, player, arena_platforms):
+        if not self.alive:
+            return
+
+        # Figure out arena bounds from platforms (once)
+        if self.arena_left is None:
+            lefts = [p.rect.left for p in arena_platforms]
+            rights = [p.rect.right for p in arena_platforms]
+            if lefts:
+                self.arena_left = min(lefts)
+                self.arena_right = max(rights)
+            else:
+                self.arena_left = 0
+                self.arena_right = 2800
+
+        # Animation tick
+        self.anim_t += 1
+        if self.anim_t >= 8:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+        self.leg_phase += 0.05
+
+        # Update projectiles (crystal shards fall with gravity)
+        for proj in self.projectiles[:]:
+            proj["rect"].x += proj["vel_x"]
+            proj["rect"].y += proj["vel_y"]
+            proj["vel_y"] += 0.3  # gravity on crystals
+            # Remove if off screen
+            if proj["rect"].y > 700 or proj["rect"].x < -50 or proj["rect"].x > 5000:
+                self.projectiles.remove(proj)
+                continue
+            # Remove if hitting a platform
+            for p in arena_platforms:
+                if proj["rect"].colliderect(p.rect):
+                    if proj in self.projectiles:
+                        self.projectiles.remove(proj)
+                    break
+
+        # Update web traps — they last 5 seconds (300 frames)
+        for trap in self.web_traps[:]:
+            trap["timer"] -= 1
+            if trap["timer"] <= 0:
+                self.web_traps.remove(trap)
+
+        # Shockwave timer
+        if self.shockwave and self.shockwave_timer > 0:
+            self.shockwave_timer -= 1
+            self.shockwave.width += 12
+            self.shockwave.x -= 6
+        else:
+            self.shockwave = None
+
+        # ---- State machine ----
+        if self.state == "idle":
+            # Float side to side
+            self.rect.x += self.float_dir * self.float_speed * self.speed_multiplier
+            if self.arena_left is not None:
+                if self.rect.left <= self.arena_left + 50:
+                    self.float_dir = 1
+                    self.facing_right = True
+                elif self.rect.right >= self.arena_right - 50:
+                    self.float_dir = -1
+                    self.facing_right = False
+            # Keep at floating height (no gravity in idle)
+            self.rect.y = self.float_y
+
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.state = self.patterns[self.pattern_index]
+                self.pattern_index = (self.pattern_index + 1) % len(self.patterns)
+                self._start_attack(player, arena_platforms)
+
+        elif self.state == "web_trap":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                # Drop web traps on platforms near the player
+                for p in arena_platforms:
+                    dist = abs(p.rect.centerx - player.rect.centerx)
+                    if dist < 300 and p.rect.width >= 60:
+                        # Place a web on this platform
+                        web_x = p.rect.x + random.randint(0, max(0, p.rect.width - 40))
+                        web_rect = pygame.Rect(web_x, p.rect.top - 5, 40, 10)
+                        self.web_traps.append({"rect": web_rect, "timer": 300})
+                        if len(self.web_traps) >= 3:
+                            break
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "crystal_barrage":
+            self.state_timer -= 1
+            if self.state_timer == 20:
+                # Fire crystal projectiles in a spread
+                num_crystals = 3 + (1 if self.hp < self.max_hp // 2 else 0) + \
+                               (1 if self.hp < self.max_hp // 4 else 0)
+                spread_start = -2
+                spread_step = 4 / max(1, num_crystals - 1) if num_crystals > 1 else 0
+                for i in range(num_crystals):
+                    vel_x = spread_start + spread_step * i
+                    vel_y = 2
+                    proj_rect = pygame.Rect(
+                        self.rect.centerx - 5, self.rect.bottom, 10, 10
+                    )
+                    self.projectiles.append({
+                        "rect": proj_rect, "vel_x": vel_x, "vel_y": vel_y
+                    })
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "ceiling_drop":
+            if self.state_timer > 40:
+                # Phase 1: Rise to ceiling fast
+                self.rect.y -= 10
+                if self.rect.y < 30:
+                    self.rect.y = 30
+                self.state_timer -= 1
+            elif self.state_timer > 20:
+                # Phase 2: Track player x, telegraph with position
+                self.rect.x += (self.drop_target_x - self.rect.centerx) * 0.15
+                self.drop_target_x = player.rect.centerx
+                self.state_timer -= 1
+            elif self.state_timer > 0:
+                # Phase 3: Drop fast!
+                self.rect.y += 20
+                self.state_timer -= 1
+                # Check if landed on a platform
+                for p in arena_platforms:
+                    if self.rect.colliderect(p.rect) and self.rect.bottom > p.rect.top:
+                        self.rect.bottom = p.rect.top
+                        # Create shockwave on landing
+                        self.shockwave = pygame.Rect(
+                            self.rect.centerx - 30, self.rect.bottom - 10,
+                            60, 15
+                        )
+                        self.shockwave_timer = 20
+                        self.state = "idle"
+                        self.state_timer = int(self.idle_time / self.speed_multiplier)
+                        # Return to floating height over time
+                        self.float_y = self.rect.y
+                        break
+            if self.state_timer <= 0 and self.state == "ceiling_drop":
+                # Safety: if we didn't hit a platform, go back to idle
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "summon":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.summoned_flies = [
+                    Spider(self.rect.x - 60, self.rect.bottom - 28,
+                           self.rect.x - 200, self.rect.x + 200),
+                    Spider(self.rect.right + 60, self.rect.bottom - 28,
+                           self.rect.x - 200, self.rect.x + 200),
+                ]
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        # Gradually float back up to a good height after ceiling drop
+        if self.state == "idle" and self.float_y > 380:
+            self.float_y -= 2
+        elif self.state == "idle" and self.float_y < 350:
+            self.float_y = 350
+
+    def _start_attack(self, player, arena_platforms):
+        """Initialize whichever attack we're about to do."""
+        if self.state == "web_trap":
+            self.state_timer = 30
+        elif self.state == "crystal_barrage":
+            self.state_timer = 40
+        elif self.state == "ceiling_drop":
+            self.drop_target_x = player.rect.centerx
+            self.pre_drop_y = self.rect.y
+            self.state_timer = 60
+        elif self.state == "summon":
+            self.state_timer = 30
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            return
+        draw_rect = self.rect.move(-camera_x, 0)
+
+        # Body — a purple oval (the spider's abdomen)
+        body_color = self.color
+        if self.state == "ceiling_drop" and self.state_timer <= 20:
+            body_color = (180, 80, 255)  # Flash bright when dropping
+
+        # Main body (oval)
+        pygame.draw.ellipse(screen, body_color, draw_rect)
+        # Darker border
+        pygame.draw.ellipse(screen, (60, 20, 100), draw_rect, 3)
+
+        # Crystal pattern on body — diamond shapes
+        cx, cy = draw_rect.centerx, draw_rect.centery
+        for dx, dy in [(-15, -10), (15, -10), (0, 10), (-20, 5), (20, 5)]:
+            crystal_pts = [
+                (cx + dx, cy + dy - 6),
+                (cx + dx + 5, cy + dy),
+                (cx + dx, cy + dy + 6),
+                (cx + dx - 5, cy + dy),
+            ]
+            pygame.draw.polygon(screen, (180, 130, 255), crystal_pts)
+            pygame.draw.polygon(screen, (220, 180, 255), crystal_pts, 1)
+
+        # Eyes — 4 glowing red eyes
+        eye_y = draw_rect.y + 20
+        eye_x = draw_rect.centerx
+        for ex_off in [-12, -5, 5, 12]:
+            pygame.draw.circle(screen, (255, 30, 30), (eye_x + ex_off, eye_y), 4)
+            pygame.draw.circle(screen, (255, 150, 150), (eye_x + ex_off, eye_y - 1), 2)
+
+        # 8 legs — 4 on each side, animated
+        for i in range(4):
+            phase = self.leg_phase + i * 0.8
+            sway = int(math.sin(phase) * 5)
+
+            # Left legs
+            leg_start_y = draw_rect.y + 20 + i * 15
+            lx = draw_rect.x
+            pygame.draw.line(screen, (80, 30, 120),
+                             (lx, leg_start_y),
+                             (lx - 20 - i * 3 + sway, leg_start_y + 15 + i * 3), 3)
+            # Claw at end
+            pygame.draw.line(screen, (80, 30, 120),
+                             (lx - 20 - i * 3 + sway, leg_start_y + 15 + i * 3),
+                             (lx - 25 - i * 3 + sway, leg_start_y + 20 + i * 3), 2)
+
+            # Right legs
+            rx = draw_rect.right
+            pygame.draw.line(screen, (80, 30, 120),
+                             (rx, leg_start_y),
+                             (rx + 20 + i * 3 - sway, leg_start_y + 15 + i * 3), 3)
+            pygame.draw.line(screen, (80, 30, 120),
+                             (rx + 20 + i * 3 - sway, leg_start_y + 15 + i * 3),
+                             (rx + 25 + i * 3 - sway, leg_start_y + 20 + i * 3), 2)
+
+        # Draw crystal projectiles
+        for proj in self.projectiles:
+            prect = proj["rect"].move(-camera_x, 0)
+            # Draw as a small diamond/crystal shape
+            pcx, pcy = prect.centerx, prect.centery
+            pts = [
+                (pcx, pcy - 6),
+                (pcx + 5, pcy),
+                (pcx, pcy + 6),
+                (pcx - 5, pcy),
+            ]
+            pygame.draw.polygon(screen, (200, 150, 255), pts)
+            pygame.draw.polygon(screen, (255, 220, 255), pts, 1)
+
+        # Draw web traps
+        for trap in self.web_traps:
+            trect = trap["rect"].move(-camera_x, 0)
+            # Semi-transparent white web patch
+            web_surf = pygame.Surface((trect.width, trect.height), pygame.SRCALPHA)
+            alpha = min(180, trap["timer"])
+            web_surf.fill((255, 255, 255, alpha))
+            screen.blit(web_surf, trect)
+            # Draw web strands
+            for wx in range(0, trect.width, 8):
+                pygame.draw.line(screen, (200, 200, 200, alpha),
+                                 (trect.x + wx, trect.y),
+                                 (trect.x + trect.width // 2, trect.bottom), 1)
+
+        # Shockwave
+        if self.shockwave and self.shockwave_timer > 0:
+            sw = self.shockwave.move(-camera_x, 0)
+            wave_surf = pygame.Surface((sw.width, sw.height), pygame.SRCALPHA)
+            wave_surf.fill((180, 100, 255, 150))
+            screen.blit(wave_surf, sw)

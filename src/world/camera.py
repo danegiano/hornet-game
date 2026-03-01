@@ -13,6 +13,7 @@ class ParallaxBackground:
         "hive":   ((110, 80, 20),   "bg_hive"),
         "tower":  ((60, 20, 20),    "bg_tower"),
         "swamp":  ((40, 60, 35),    "bg_swamp"),
+        "cave":   ((20, 12, 40),    "bg_cave"),
     }
 
     def __init__(self, level_or_theme):

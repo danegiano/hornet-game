@@ -227,6 +227,205 @@ def create_level(island, level):
             enemies = []
 
     # =========================================================================
+    # ISLAND 2 — The Crystal Caves
+    # =========================================================================
+    elif island == 2:
+        if level == 0:  # Crystal Entrance — intro to caves, spiders + wasps
+            platforms = [
+                Platform(0, 540, 400, 60, color),
+                Platform(250, 440, 100, 20, color),
+                Platform(420, 360, 80, 20, color),
+                Platform(550, 460, 120, 20, color),
+                Platform(700, 540, 250, 60, color),
+                Platform(800, 420, 80, 20, color),
+                Platform(950, 340, 100, 20, color),
+                Platform(1100, 440, 80, 20, color),
+                Platform(1250, 540, 300, 60, color),
+                Platform(1400, 400, 100, 20, color),
+                Platform(1550, 320, 80, 20, color),
+                Platform(1700, 440, 120, 20, color),
+                Platform(1850, 540, 350, 60, color),
+                Platform(2100, 460, 100, 20, color),
+                Platform(2250, 540, 300, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(300, 440 - 28, 250, 400),
+                Wasp(600, 460 - 24, 550, 750),
+                Spider(850, 420 - 28, 800, 950),
+                Wasp(1000, 340 - 24, 950, 1150),
+                Spider(1300, 540 - 28, 1250, 1500),
+                Wasp(1450, 400 - 24, 1400, 1600),
+                Spider(1750, 440 - 28, 1700, 1900),
+                Wasp(1950, 540 - 24, 1850, 2150),
+                Spider(2300, 540 - 28, 2250, 2500),
+            ], hp_multiplier=2.25, speed_multiplier=1.1)
+
+        elif level == 1:  # Amethyst Tunnels — vertical, spiders + flies, tight
+            platforms = [
+                Platform(0, 540, 300, 60, color),
+                Platform(150, 430, 80, 20, color),
+                Platform(300, 330, 80, 20, color),
+                Platform(180, 250, 80, 20, color),
+                Platform(400, 460, 100, 20, color),
+                Platform(550, 540, 200, 60, color),
+                Platform(600, 380, 80, 20, color),
+                Platform(750, 280, 80, 20, color),
+                Platform(900, 380, 80, 20, color),
+                Platform(850, 480, 100, 20, color),
+                Platform(1050, 540, 200, 60, color),
+                Platform(1100, 400, 80, 20, color),
+                Platform(1250, 300, 80, 20, color),
+                Platform(1400, 400, 80, 20, color),
+                Platform(1350, 500, 100, 20, color),
+                Platform(1550, 540, 250, 60, color),
+                Platform(1650, 420, 80, 20, color),
+                Platform(1800, 320, 80, 20, color),
+                Platform(1950, 440, 100, 20, color),
+                Platform(2100, 540, 300, 60, color),
+                Platform(2300, 460, 80, 20, color),
+                Platform(2450, 540, 200, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(200, 430 - 28, 150, 350),
+                Fly(350, 270, 300, 500),
+                Spider(450, 460 - 28, 400, 550),
+                Fly(650, 320, 600, 800),
+                Spider(900, 380 - 28, 850, 1000),
+                Fly(1150, 240, 1100, 1300),
+                Spider(1300, 540 - 28, 1250, 1450),
+                Fly(1450, 340, 1400, 1600),
+                Spider(1700, 420 - 28, 1650, 1850),
+                Fly(1850, 260, 1800, 2000),
+                Spider(2150, 540 - 28, 2100, 2350),
+                Fly(2350, 400, 2300, 2500),
+            ], hp_multiplier=2.25, speed_multiplier=1.1)
+
+        elif level == 2:  # Diamond Depths — mix of all enemies, long + tricky
+            platforms = [
+                Platform(0, 540, 300, 60, color),
+                Platform(200, 430, 80, 20, color),
+                Platform(350, 350, 80, 20, color),
+                Platform(500, 450, 80, 20, color),
+                Platform(630, 540, 200, 60, color),
+                Platform(700, 380, 80, 20, color),
+                Platform(850, 290, 80, 20, color),
+                Platform(1000, 380, 80, 20, color),
+                Platform(1100, 480, 100, 20, color),
+                Platform(1250, 540, 200, 60, color),
+                Platform(1350, 400, 80, 20, color),
+                Platform(1500, 310, 100, 20, color),
+                Platform(1650, 420, 80, 20, color),
+                Platform(1800, 540, 200, 60, color),
+                Platform(1900, 380, 80, 20, color),
+                Platform(2050, 280, 80, 20, color),
+                Platform(2200, 400, 100, 20, color),
+                Platform(2350, 500, 80, 20, color),
+                Platform(2500, 540, 250, 60, color),
+                Platform(2650, 420, 80, 20, color),
+                Platform(2800, 320, 80, 20, color),
+                Platform(2950, 440, 100, 20, color),
+                Platform(3100, 540, 300, 60, color),
+                Platform(3300, 460, 80, 20, color),
+                Platform(3450, 540, 200, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(250, 430 - 28, 200, 400),
+                Wasp(400, 350 - 24, 350, 550),
+                Fly(550, 390, 500, 700),
+                Spider(750, 380 - 28, 700, 900),
+                Wasp(900, 290 - 24, 850, 1050),
+                Fly(1050, 420, 1000, 1200),
+                Spider(1300, 540 - 28, 1250, 1450),
+                Wasp(1400, 400 - 24, 1350, 1550),
+                Fly(1550, 250, 1500, 1700),
+                Spider(1850, 540 - 28, 1800, 2000),
+                Wasp(1950, 380 - 24, 1900, 2100),
+                Fly(2100, 220, 2050, 2250),
+                Spider(2400, 500 - 28, 2350, 2550),
+                Wasp(2550, 540 - 24, 2500, 2700),
+                Fly(2700, 260, 2650, 2850),
+                Spider(3000, 440 - 28, 2950, 3150),
+                Wasp(3150, 540 - 24, 3100, 3350),
+                Fly(3350, 400, 3300, 3500),
+            ], hp_multiplier=2.25, speed_multiplier=1.1)
+
+        elif level == 3:  # Sapphire Cavern — hard, lots of lunging spiders
+            platforms = [
+                Platform(0, 540, 250, 60, color),
+                Platform(150, 440, 80, 20, color),
+                Platform(300, 360, 80, 20, color),
+                Platform(450, 450, 80, 20, color),
+                Platform(580, 540, 180, 60, color),
+                Platform(650, 380, 80, 20, color),
+                Platform(800, 290, 80, 20, color),
+                Platform(950, 400, 80, 20, color),
+                Platform(1050, 500, 100, 20, color),
+                Platform(1200, 540, 180, 60, color),
+                Platform(1300, 400, 80, 20, color),
+                Platform(1450, 300, 80, 20, color),
+                Platform(1600, 400, 80, 20, color),
+                Platform(1700, 500, 100, 20, color),
+                Platform(1850, 540, 200, 60, color),
+                Platform(1950, 380, 80, 20, color),
+                Platform(2100, 280, 80, 20, color),
+                Platform(2250, 400, 80, 20, color),
+                Platform(2400, 500, 100, 20, color),
+                Platform(2550, 540, 200, 60, color),
+                Platform(2700, 420, 80, 20, color),
+                Platform(2850, 320, 80, 20, color),
+                Platform(3000, 440, 80, 20, color),
+                Platform(3100, 540, 250, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(200, 440 - 28, 150, 350),
+                Spider(350, 360 - 28, 300, 500),
+                Wasp(500, 450 - 24, 450, 620),
+                Spider(700, 380 - 28, 650, 850),
+                Spider(850, 290 - 28, 800, 950),
+                Fly(1000, 340, 950, 1100),
+                Spider(1250, 540 - 28, 1200, 1380),
+                Spider(1350, 400 - 28, 1300, 1500),
+                Wasp(1500, 300 - 24, 1450, 1650),
+                Spider(1650, 400 - 28, 1600, 1750),
+                Spider(1900, 540 - 28, 1850, 2050),
+                Fly(2000, 320, 1950, 2150),
+                Spider(2150, 280 - 28, 2100, 2300),
+                Spider(2300, 400 - 28, 2250, 2450),
+                Wasp(2600, 540 - 24, 2550, 2750),
+                Spider(2750, 420 - 28, 2700, 2900),
+                Spider(2900, 320 - 28, 2850, 3050),
+                Spider(3050, 440 - 28, 3000, 3200),
+            ], hp_multiplier=2.25, speed_multiplier=1.15)
+
+        elif level == 4:  # Spider Queen's Web — regular enemies + boss arena
+            platforms = [
+                Platform(0, 540, 350, 60, color),
+                Platform(200, 430, 80, 20, color),
+                Platform(400, 350, 100, 20, color),
+                Platform(550, 460, 80, 20, color),
+                Platform(700, 540, 200, 60, color),
+                Platform(800, 380, 80, 20, color),
+                Platform(1000, 300, 80, 20, color),
+                Platform(1150, 420, 80, 20, color),
+                Platform(1300, 540, 200, 60, color),
+                Platform(1500, 400, 100, 20, color),
+                # Boss arena — wide flat area
+                Platform(1800, 540, 1000, 60, color),
+            ]
+            enemies = scale_enemies([
+                Spider(250, 430 - 28, 200, 400),
+                Wasp(450, 350 - 24, 400, 600),
+                Spider(600, 460 - 28, 550, 720),
+                Fly(850, 320, 800, 1050),
+                Spider(1050, 300 - 28, 1000, 1200),
+                Wasp(1200, 420 - 24, 1150, 1350),
+                Spider(1350, 540 - 28, 1300, 1500),
+            ], hp_multiplier=2.25, speed_multiplier=1.1)
+        else:
+            platforms = []
+            enemies = []
+
+    # =========================================================================
     # Fallback for unbuilt islands
     # =========================================================================
     else:
@@ -239,11 +438,17 @@ def create_level(island, level):
 def check_level_complete(player, enemies, island=0, level=0):
     """Check if all enemies are dead and player reached end of level."""
     all_dead = all(not e.alive and e.death_timer <= 0 for e in enemies)
-    # Swamp levels are longer, so the end-of-level threshold needs to be further right
+    # Each island/level can have a different end-of-level threshold
     if island == 1 and level == 2:
         end_x = 3050  # Poison Bog is the longest
     elif island == 1:
         end_x = 2200  # Other swamp levels
+    elif island == 2 and level == 2:
+        end_x = 3350  # Diamond Depths is long
+    elif island == 2 and level == 3:
+        end_x = 3050  # Sapphire Cavern
+    elif island == 2:
+        end_x = 2350  # Other crystal cave levels
     else:
         end_x = 1900  # Island 0 levels
     past_end = player.rect.x > end_x

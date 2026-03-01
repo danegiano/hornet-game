@@ -11,6 +11,7 @@ class Platform:
         self.is_hive = (color == (160, 120, 60))
         self.is_tower = (color == (80, 80, 80))
         self.is_swamp = (color == (60, 100, 50))
+        self.is_crystal = (color == (80, 60, 140))
 
     def draw(self, screen, camera_x, time_ms=0):
         draw_rect = self.rect.move(-camera_x, 0)
@@ -91,3 +92,36 @@ class Platform:
                 start = (draw_rect.x + vx, draw_rect.bottom)
                 end = (draw_rect.x + vx + int(vine_sway), draw_rect.bottom + vine_len)
                 pygame.draw.line(screen, (30, 90, 30), start, end, 2)
+
+        elif self.is_crystal:
+            import math, random
+            # Glowing purple edges
+            edge_color = (120, 80, 200)
+            pygame.draw.rect(screen, edge_color, draw_rect, 2)
+
+            # Crystal spikes on top (small triangles along the top edge)
+            for sx in range(5, self.rect.width - 5, 18):
+                world_x = self.rect.x + sx
+                # Vary spike height based on world position (deterministic)
+                spike_h = 6 + (world_x * 7 % 5)
+                pts = [
+                    (draw_rect.x + sx - 4, draw_rect.y),
+                    (draw_rect.x + sx, draw_rect.y - spike_h),
+                    (draw_rect.x + sx + 4, draw_rect.y),
+                ]
+                pygame.draw.polygon(screen, (130, 100, 200), pts)
+                pygame.draw.polygon(screen, (180, 150, 255), pts, 1)
+
+            # Sparkling/twinkling dots that flash bright
+            for tx in range(8, self.rect.width, 15):
+                world_x = self.rect.x + tx
+                # Use time + position to make sparkles blink
+                sparkle = math.sin(time_ms / 200.0 + world_x * 1.7) * 0.5 + 0.5
+                if sparkle > 0.7:
+                    brightness = int(150 + sparkle * 105)
+                    spark_y = draw_rect.y + 3 + (world_x * 13 % max(1, self.rect.height - 6))
+                    pygame.draw.circle(screen, (brightness, brightness, 255),
+                                       (draw_rect.x + tx, spark_y), 2)
+                    # Tiny highlight
+                    pygame.draw.circle(screen, (255, 255, 255),
+                                       (draw_rect.x + tx, spark_y), 1)

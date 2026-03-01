@@ -61,10 +61,21 @@ LEVEL_THEMES = {
         {"bg": (35, 50, 25),  "platform": (60, 100, 50), "name": "Poison Bog"},
         {"bg": (30, 40, 20),  "platform": (60, 100, 50), "name": "Beetle Lord's Lair"},
     ],
+    # Island 2 — The Crystal Caves
+    2: [
+        {"bg": (30, 20, 60),   "platform": (80, 60, 140), "name": "Crystal Entrance"},
+        {"bg": (25, 15, 55),   "platform": (80, 60, 140), "name": "Amethyst Tunnels"},
+        {"bg": (20, 10, 50),   "platform": (80, 60, 140), "name": "Diamond Depths"},
+        {"bg": (15, 8, 45),    "platform": (80, 60, 140), "name": "Sapphire Cavern"},
+        {"bg": (10, 5, 40),    "platform": (80, 60, 140), "name": "Spider Queen's Web"},
+    ],
 }
 
 # Swamp platform color constant
 SWAMP_GREEN = (60, 100, 50)
+
+# Crystal cave platform color constant
+CRYSTAL_PURPLE = (80, 60, 140)
 
 # Player constants
 PLAYER_WIDTH = 32
