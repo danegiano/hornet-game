@@ -11,6 +11,13 @@ TITLE = "HORNET"
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
+# Game states
+STATE_TITLE = "title"
+STATE_PLAYING = "playing"
+STATE_LEVEL_TRANSITION = "transition"
+STATE_GAME_OVER = "game_over"
+STATE_VICTORY = "victory"
+
 # Player constants
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 30
@@ -283,6 +290,43 @@ def draw_hud(screen, player, level_name):
     screen.blit(text, (SCREEN_WIDTH - text.get_width() - 10, 10))
 
 
+def draw_title_screen(screen):
+    screen.fill(BLACK)
+    font_big = pygame.font.Font(None, 80)
+    font_small = pygame.font.Font(None, 36)
+    title = font_big.render("HORNET", True, YELLOW)
+    prompt = font_small.render("Press ENTER to start", True, WHITE)
+    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 200))
+    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 350))
+
+def draw_game_over(screen):
+    screen.fill(BLACK)
+    font_big = pygame.font.Font(None, 64)
+    font_small = pygame.font.Font(None, 36)
+    title = font_big.render("GAME OVER", True, RED)
+    prompt = font_small.render("Press ENTER to retry", True, WHITE)
+    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 220))
+    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
+
+def draw_transition(screen, level_name):
+    screen.fill(BLACK)
+    font_big = pygame.font.Font(None, 56)
+    font_small = pygame.font.Font(None, 36)
+    title = font_big.render(level_name, True, WHITE)
+    prompt = font_small.render("Press ENTER to continue", True, (180, 180, 180))
+    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 240))
+    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
+
+def draw_victory(screen):
+    screen.fill(BLACK)
+    font_big = pygame.font.Font(None, 56)
+    font_small = pygame.font.Font(None, 36)
+    title = font_big.render("You defeated the Wasp King!", True, YELLOW)
+    prompt = font_small.render("Press ENTER to play again", True, WHITE)
+    screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 240))
+    screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, 330))
+
+
 def handle_combat(player, enemies):
     # Player attack hits enemies
     if player.attacking and player.attack_rect:
@@ -308,24 +352,30 @@ def main():
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
 
-    # Platform list — the ground is just a very wide platform at the bottom
-    platforms = [
-        Platform(0, SCREEN_HEIGHT - 60, 2000, 60),   # Long ground
-        Platform(300, 420, 150, 20),                   # Floating platform
-        Platform(550, 340, 150, 20),                   # Higher platform
-        Platform(800, 400, 200, 20),                   # Another platform
-    ]
+    game_state = STATE_TITLE
+    current_level = 0
+    level_names = ["Level 1: The Garden", "Level 2: The Hive", "Level 3: The Throne Room"]
 
-    enemies = [
-        Beetle(400, SCREEN_HEIGHT - 60 - 24, 350, 550),
-        Beetle(700, SCREEN_HEIGHT - 60 - 24, 650, 900),
-    ]
+    # Initialize game objects (will be reset when starting/restarting)
+    platforms = []
+    enemies = []
+    player = None
+    camera = None
 
-    # Create the player, positioned just above the ground platform
-    player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
-
-    # Create the camera — it will follow the player smoothly
-    camera = Camera()
+    def start_level():
+        nonlocal platforms, enemies, player, camera
+        platforms = [
+            Platform(0, SCREEN_HEIGHT - 60, 2000, 60),
+            Platform(300, 420, 150, 20),
+            Platform(550, 340, 150, 20),
+            Platform(800, 400, 200, 20),
+        ]
+        enemies = [
+            Beetle(400, SCREEN_HEIGHT - 60 - 24, 350, 550),
+            Beetle(700, SCREEN_HEIGHT - 60 - 24, 650, 900),
+        ]
+        player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
+        camera = Camera()
 
     running = True
     while running:
@@ -333,41 +383,50 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_z, pygame.K_x):
+                if event.key == pygame.K_RETURN:
+                    if game_state == STATE_TITLE:
+                        start_level()
+                        game_state = STATE_PLAYING
+                    elif game_state == STATE_GAME_OVER:
+                        start_level()
+                        game_state = STATE_PLAYING
+                    elif game_state == STATE_LEVEL_TRANSITION:
+                        start_level()
+                        game_state = STATE_PLAYING
+                    elif game_state == STATE_VICTORY:
+                        game_state = STATE_TITLE
+                if event.key in (pygame.K_z, pygame.K_x) and game_state == STATE_PLAYING:
                     player.start_attack()
 
-        # Read which keys are currently held down
-        keys = pygame.key.get_pressed()
+        if game_state == STATE_PLAYING:
+            keys = pygame.key.get_pressed()
+            player.update(keys, platforms)
+            for enemy in enemies:
+                enemy.update()
+            handle_combat(player, enemies)
+            camera.update(player)
 
-        # Update the player (movement, gravity, collisions)
-        player.update(keys, platforms)
+            # Check for death
+            if player.hp <= 0:
+                game_state = STATE_GAME_OVER
 
-        # Update the camera to follow the player
-        camera.update(player)
-
-        # Update all enemies (movement, death timer)
-        for enemy in enemies:
-            enemy.update()
-
-        # Check for combat hits between player and enemies
-        handle_combat(player, enemies)
-
-        # --- Drawing ---
-        # Light blue sky background
-        screen.fill((135, 200, 235))
-
-        # Draw all platforms, offset by the camera position
-        for p in platforms:
-            p.draw(screen, camera.x)
-
-        # Draw enemies on top of platforms, below the player
-        for enemy in enemies:
-            enemy.draw(screen, camera.x)
-
-        # Draw the player on top of everything, also offset by camera
-        player.draw(screen, camera.x)
-
-        draw_hud(screen, player, "Level 1: The Garden")
+        # Drawing
+        if game_state == STATE_TITLE:
+            draw_title_screen(screen)
+        elif game_state == STATE_PLAYING:
+            screen.fill((135, 200, 235))
+            for p in platforms:
+                p.draw(screen, camera.x)
+            for enemy in enemies:
+                enemy.draw(screen, camera.x)
+            player.draw(screen, camera.x)
+            draw_hud(screen, player, level_names[current_level])
+        elif game_state == STATE_GAME_OVER:
+            draw_game_over(screen)
+        elif game_state == STATE_LEVEL_TRANSITION:
+            draw_transition(screen, level_names[current_level])
+        elif game_state == STATE_VICTORY:
+            draw_victory(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
