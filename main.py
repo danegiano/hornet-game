@@ -84,37 +84,46 @@ class Player:
                     self.rect.top = platform.rect.bottom
                     self.vel_y = 0
 
-    def draw(self, screen):
+    def draw(self, screen, camera_x):
+        # Shift the player's draw position left by camera_x so it moves with the world
+        draw_rect = self.rect.move(-camera_x, 0)
+
         # Draw the yellow body rectangle
-        pygame.draw.rect(screen, YELLOW, self.rect)
+        pygame.draw.rect(screen, YELLOW, draw_rect)
 
         # Draw a darker border around the body so it looks cleaner
-        pygame.draw.rect(screen, DARK_YELLOW, self.rect, 2)
+        pygame.draw.rect(screen, DARK_YELLOW, draw_rect, 2)
 
         # --- Stinger triangle ---
         # The stinger pokes out from the front of the hornet
         # It's a small triangle made of 3 points (a polygon)
+        # We use draw_rect positions (not self.rect) so the stinger scrolls too
 
         if self.facing_right:
             # Stinger points to the right
-            tip_x = self.rect.right + 10          # The pointy tip
-            mid_y = self.rect.centery             # Vertically centered
-            stinger_points = [
-                (self.rect.right, mid_y - 5),     # Top-left corner of triangle
-                (self.rect.right, mid_y + 5),     # Bottom-left corner of triangle
-                (tip_x, mid_y),                   # The sharp tip
-            ]
+            tip_x = draw_rect.right + 8
+            base_top = (draw_rect.right, draw_rect.centery - 4)
+            base_bot = (draw_rect.right, draw_rect.centery + 4)
         else:
             # Stinger points to the left
-            tip_x = self.rect.left - 10           # The pointy tip
-            mid_y = self.rect.centery
-            stinger_points = [
-                (self.rect.left, mid_y - 5),      # Top-right corner of triangle
-                (self.rect.left, mid_y + 5),      # Bottom-right corner of triangle
-                (tip_x, mid_y),                   # The sharp tip
-            ]
+            tip_x = draw_rect.left - 8
+            base_top = (draw_rect.left, draw_rect.centery - 4)
+            base_bot = (draw_rect.left, draw_rect.centery + 4)
 
-        pygame.draw.polygon(screen, DARK_YELLOW, stinger_points)
+        tip = (tip_x, draw_rect.centery)
+        pygame.draw.polygon(screen, DARK_YELLOW, [tip, base_top, base_bot])
+
+
+class Camera:
+    def __init__(self):
+        self.x = 0
+
+    def update(self, player):
+        # Camera follows player, keeping them in the left third of the screen
+        target_x = player.rect.centerx - SCREEN_WIDTH // 3
+        self.x += (target_x - self.x) * 0.1  # Smooth follow (lerp)
+        if self.x < 0:
+            self.x = 0  # Don't scroll left past the start of the world
 
 
 class Platform:
@@ -145,6 +154,9 @@ def main():
     # Create the player, positioned just above the ground platform
     player = Player(100, SCREEN_HEIGHT - 60 - PLAYER_HEIGHT)
 
+    # Create the camera — it will follow the player smoothly
+    camera = Camera()
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -157,16 +169,19 @@ def main():
         # Update the player (movement, gravity, collisions)
         player.update(keys, platforms)
 
+        # Update the camera to follow the player
+        camera.update(player)
+
         # --- Drawing ---
         # Light blue sky background
         screen.fill((135, 200, 235))
 
-        # Draw all platforms (camera_x=0 for now, Task 5 will make it scroll)
+        # Draw all platforms, offset by the camera position
         for p in platforms:
-            p.draw(screen, 0)
+            p.draw(screen, camera.x)
 
-        # Draw the player on top of everything
-        player.draw(screen)
+        # Draw the player on top of everything, also offset by camera
+        player.draw(screen, camera.x)
 
         pygame.display.flip()
         clock.tick(FPS)
