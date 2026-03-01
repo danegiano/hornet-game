@@ -14,6 +14,7 @@ from src.save_data import SaveData
 from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
 from src.ui.island_map import IslandMap
+from src.ui.shop import Shop
 
 
 def apply_powers(player, save_data):
@@ -72,6 +73,7 @@ def main():
     current_island = 0
     current_level_in_island = 0
     island_map = None
+    shop = None
 
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
@@ -136,7 +138,14 @@ def main():
                         game_state = STATE_PLAYING
                         play_music("level_music")
                     elif result == "shop":
-                        print("Shop coming soon!")  # Task 14 will add the shop
+                        shop = Shop(save_data)
+                        game_state = "shop"
+
+            if game_state == "shop" and shop:
+                result = shop.handle_input(event)
+                if result == "close":
+                    island_map = IslandMap(save_data)
+                    game_state = STATE_ISLAND_MAP
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
@@ -272,6 +281,8 @@ def main():
                 draw_boss_hp(screen, boss)
         elif game_state == STATE_ISLAND_MAP:
             island_map.draw(screen)
+        elif game_state == "shop":
+            shop.draw(screen)
         elif game_state == STATE_GAME_OVER:
             draw_game_over(screen)
         elif game_state == STATE_LEVEL_TRANSITION:
