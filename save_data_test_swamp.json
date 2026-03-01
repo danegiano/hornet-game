@@ -1,7 +1,0 @@
-{
-  "coins": 100,
-  "hp_upgrades": 0,
-  "max_island_unlocked": 1,
-  "powers": ["double_jump"],
-  "completed_levels": {"0": [0, 1, 2]}
-}
