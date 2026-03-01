@@ -9,11 +9,12 @@ class ParallaxBackground:
 
     # Maps theme names to (sky_color, sprite_prefix)
     THEMES = {
-        "garden": ((135, 200, 235), "bg_garden"),
-        "hive":   ((110, 80, 20),   "bg_hive"),
-        "tower":  ((60, 20, 20),    "bg_tower"),
-        "swamp":  ((40, 60, 35),    "bg_swamp"),
-        "cave":   ((20, 12, 40),    "bg_cave"),
+        "garden":  ((135, 200, 235), "bg_garden"),
+        "hive":    ((110, 80, 20),   "bg_hive"),
+        "tower":   ((60, 20, 20),    "bg_tower"),
+        "swamp":   ((40, 60, 35),    "bg_swamp"),
+        "cave":    ((20, 12, 40),    "bg_cave"),
+        "volcano": ((80, 30, 10),    "bg_volcano"),
     }
 
     def __init__(self, level_or_theme):

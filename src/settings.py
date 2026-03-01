@@ -69,6 +69,15 @@ LEVEL_THEMES = {
         {"bg": (15, 8, 45),    "platform": (80, 60, 140), "name": "Sapphire Cavern"},
         {"bg": (10, 5, 40),    "platform": (80, 60, 140), "name": "Spider Queen's Web"},
     ],
+    # Island 3 — The Volcano
+    3: [
+        {"bg": (80, 30, 10),  "platform": (100, 50, 30), "name": "Lava Flats"},
+        {"bg": (70, 25, 8),   "platform": (100, 50, 30), "name": "Magma Tunnels"},
+        {"bg": (60, 20, 5),   "platform": (100, 50, 30), "name": "Ember Caverns"},
+        {"bg": (50, 15, 5),   "platform": (100, 50, 30), "name": "Inferno Pit"},
+        {"bg": (40, 10, 5),   "platform": (100, 50, 30), "name": "Ash Wastes"},
+        {"bg": (30, 5, 5),    "platform": (100, 50, 30), "name": "Moth's Furnace"},
+    ],
 }
 
 # Swamp platform color constant
@@ -76,6 +85,9 @@ SWAMP_GREEN = (60, 100, 50)
 
 # Crystal cave platform color constant
 CRYSTAL_PURPLE = (80, 60, 140)
+
+# Volcano platform color constant
+VOLCANO_BROWN = (100, 50, 30)
 
 # Player constants
 PLAYER_WIDTH = 32

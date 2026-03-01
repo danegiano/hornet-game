@@ -12,6 +12,7 @@ class Platform:
         self.is_tower = (color == (80, 80, 80))
         self.is_swamp = (color == (60, 100, 50))
         self.is_crystal = (color == (80, 60, 140))
+        self.is_volcano = (color == (100, 50, 30))
 
     def draw(self, screen, camera_x, time_ms=0):
         draw_rect = self.rect.move(-camera_x, 0)
@@ -125,3 +126,42 @@ class Platform:
                     # Tiny highlight
                     pygame.draw.circle(screen, (255, 255, 255),
                                        (draw_rect.x + tx, spark_y), 1)
+
+        elif self.is_volcano:
+            import math
+            # Dark cracked surface — jagged lines across the top
+            for cx in range(0, self.rect.width, 25):
+                world_x = self.rect.x + cx
+                # Deterministic crack pattern based on world position
+                crack_end_x = cx + 12 + (world_x * 3 % 10)
+                crack_dip = 3 + (world_x * 7 % 4)
+                pygame.draw.line(screen, (50, 25, 15),
+                                 (draw_rect.x + cx, draw_rect.y + 2),
+                                 (draw_rect.x + min(crack_end_x, self.rect.width),
+                                  draw_rect.y + crack_dip), 2)
+
+            # Red/orange lava glow along the bottom edge
+            glow_h = min(6, self.rect.height - 2)
+            glow_pulse = math.sin(time_ms / 300.0) * 0.3 + 0.7
+            glow_r = int(200 * glow_pulse)
+            glow_g = int(60 * glow_pulse)
+            for gx in range(0, self.rect.width, 4):
+                world_x = self.rect.x + gx
+                # Vary the glow intensity along the edge
+                intensity = math.sin(world_x / 20.0 + time_ms / 500.0) * 0.3 + 0.7
+                r = int(glow_r * intensity)
+                g = int(glow_g * intensity)
+                pygame.draw.rect(screen, (min(255, r), min(255, g), 0),
+                                 (draw_rect.x + gx, draw_rect.bottom - glow_h, 4, glow_h))
+
+            # Floating embers/sparks rising up from the platform
+            for ex in range(15, self.rect.width, 40):
+                world_x = self.rect.x + ex
+                # Each ember rises over time, then resets
+                ember_cycle = (time_ms / 10.0 + world_x * 5) % 50
+                ember_y = draw_rect.y - int(ember_cycle)
+                ember_size = max(1, 3 - int(ember_cycle / 18))
+                if ember_cycle < 45:
+                    # Orange-yellow ember
+                    pygame.draw.circle(screen, (255, 150 + int(ember_cycle * 2), 0),
+                                       (draw_rect.x + ex, ember_y), ember_size)

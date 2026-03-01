@@ -751,3 +751,420 @@ class CrystalSpiderQueen:
             wave_surf = pygame.Surface((sw.width, sw.height), pygame.SRCALPHA)
             wave_surf.fill((180, 100, 255, 150))
             screen.blit(wave_surf, sw)
+
+
+class FireMoth:
+    """Boss of Island 3: The Volcano.
+
+    A fiery moth that flies around the arena. Attacks cycle through:
+      1. Fireball Rain — flies to top center, drops 5-8 fireballs that leave burning patches.
+      2. Flame Dash — dashes horizontally across the screen, leaving a fire trail.
+      3. Flame Wall — sends a tall fire wall across the arena with a gap to dodge through.
+      4. Summon — spawns 2 flies to help.
+    """
+
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 80, 70)
+        self.hp = 33
+        self.max_hp = 33
+        self.color = (255, 120, 30)  # Fiery orange
+        self.alive = True
+        self.vel_y = 0
+        self.vel_x = 0
+
+        # Attack pattern state
+        self.state = "idle"
+        self.state_timer = 0
+        self.pattern_index = 0
+        self.patterns = ["fireball_rain", "flame_dash", "flame_wall", "summon"]
+        self.idle_time = 60
+        self.speed_multiplier = 1.0
+
+        # Floating movement (erratic circular pattern)
+        self.float_y = y
+        self.float_angle = 0       # For circular floating movement
+        self.float_dir = 1         # 1 = moving right, -1 = moving left
+        self.float_speed = 2.0
+
+        # Fireball Rain
+        self.projectiles = []       # list of dicts: {rect, vel_y} — falling fireballs
+        self.burning_patches = []   # list of dicts: {rect, timer} — ground fire
+
+        # Flame Dash
+        self.dash_dir = 1           # 1 = right, -1 = left
+        self.fire_trail = []        # list of dicts: {rect, timer} — trail of fire
+
+        # Flame Wall
+        self.flame_wall = None      # dict: {rect, vel_x, gap_y, gap_height} or None
+
+        # Summon (same interface as other bosses)
+        self.summoned_flies = []
+
+        # For combat.py compatibility (shockwave checks)
+        self.shockwave = None
+        self.shockwave_left = None
+        self.shockwave_right = None
+        self.shockwave_timer = 0
+
+        # Animation
+        self.anim_t = 0
+        self.anim_f = 0
+        self.facing_right = False
+        self.wing_phase = 0
+
+        # Arena bounds
+        self.arena_left = None
+        self.arena_right = None
+
+    def take_damage(self, amount):
+        self.hp -= amount
+        # Gets faster and meaner as HP drops
+        self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
+        if self.hp <= 0:
+            self.alive = False
+
+    def update(self, player, arena_platforms):
+        if not self.alive:
+            return
+
+        # Figure out arena bounds from platforms (once)
+        if self.arena_left is None:
+            lefts = [p.rect.left for p in arena_platforms]
+            rights = [p.rect.right for p in arena_platforms]
+            if lefts:
+                self.arena_left = min(lefts)
+                self.arena_right = max(rights)
+            else:
+                self.arena_left = 0
+                self.arena_right = 3250
+
+        # Animation tick
+        self.anim_t += 1
+        if self.anim_t >= 4:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+        self.wing_phase += 0.15
+
+        # Update fireballs (they fall with gravity)
+        for proj in self.projectiles[:]:
+            proj["rect"].y += proj["vel_y"]
+            proj["vel_y"] += 0.5  # Gravity on fireballs
+            # Check if fireball hit a platform — leave a burning patch
+            landed = False
+            for p in arena_platforms:
+                if proj["rect"].colliderect(p.rect) and proj["vel_y"] > 0:
+                    # Create a burning patch where it landed
+                    patch_rect = pygame.Rect(
+                        proj["rect"].x - 10, p.rect.top - 6, 28, 8
+                    )
+                    self.burning_patches.append({"rect": patch_rect, "timer": 180})  # 3 seconds
+                    landed = True
+                    break
+            if landed:
+                self.projectiles.remove(proj)
+                continue
+            # Remove if off screen
+            if proj["rect"].y > 700:
+                self.projectiles.remove(proj)
+
+        # Update burning patches (they count down and disappear)
+        for patch in self.burning_patches[:]:
+            patch["timer"] -= 1
+            if patch["timer"] <= 0:
+                self.burning_patches.remove(patch)
+
+        # Update fire trail (from flame dash)
+        for trail in self.fire_trail[:]:
+            trail["timer"] -= 1
+            if trail["timer"] <= 0:
+                self.fire_trail.remove(trail)
+
+        # Update flame wall
+        if self.flame_wall:
+            self.flame_wall["rect"].x += self.flame_wall["vel_x"]
+            # Remove if off screen
+            if (self.flame_wall["rect"].x > self.arena_right + 100 or
+                    self.flame_wall["rect"].right < self.arena_left - 100):
+                self.flame_wall = None
+
+        # ---- State machine ----
+        if self.state == "idle":
+            # Float around in an erratic pattern (no gravity — it's a moth!)
+            self.float_angle += 0.03 * self.speed_multiplier
+            self.rect.x += self.float_dir * self.float_speed * self.speed_multiplier
+            self.rect.y = self.float_y + int(math.sin(self.float_angle) * 30)
+
+            # Bounce off arena edges
+            if self.arena_left is not None:
+                if self.rect.left <= self.arena_left + 30:
+                    self.float_dir = 1
+                    self.facing_right = True
+                elif self.rect.right >= self.arena_right - 30:
+                    self.float_dir = -1
+                    self.facing_right = False
+
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.state = self.patterns[self.pattern_index]
+                self.pattern_index = (self.pattern_index + 1) % len(self.patterns)
+                self._start_attack(player)
+
+        elif self.state == "fireball_rain":
+            # Phase 1: Fly to top center of arena
+            if self.state_timer > 30:
+                target_x = (self.arena_left + self.arena_right) // 2
+                target_y = 80
+                self.rect.x += (target_x - self.rect.centerx) * 0.1
+                self.rect.y += (target_y - self.rect.centery) * 0.1
+                self.state_timer -= 1
+            elif self.state_timer > 0:
+                # Phase 2: Drop fireballs at random x positions
+                if self.state_timer % 5 == 0:
+                    num_fireballs = 5 + (3 if self.hp < self.max_hp // 2 else 0)
+                    # Drop one fireball per tick (spread over the timer)
+                    fx = random.randint(self.arena_left + 40, self.arena_right - 40)
+                    fireball_rect = pygame.Rect(fx, self.rect.bottom, 8, 8)
+                    self.projectiles.append({"rect": fireball_rect, "vel_y": 2})
+                self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+                self.float_y = 300  # Return to floating height
+
+        elif self.state == "flame_dash":
+            # Dash horizontally very fast, leaving fire trail
+            speed = 12 * self.speed_multiplier
+            self.rect.x += self.dash_dir * speed
+
+            # Leave fire trail behind
+            trail_rect = pygame.Rect(
+                self.rect.centerx - 4, self.rect.centery - 4, 8, 8
+            )
+            self.fire_trail.append({"rect": trail_rect, "timer": 60})  # 1 second
+
+            # Check if we've crossed the arena
+            if (self.dash_dir > 0 and self.rect.right >= self.arena_right) or \
+               (self.dash_dir < 0 and self.rect.left <= self.arena_left):
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+                self.float_y = 300
+
+        elif self.state == "flame_wall":
+            self.state_timer -= 1
+            if self.state_timer == 30:
+                # Create the flame wall — a tall rect with a gap
+                wall_height = 400
+                gap_height = 80  # Player can fit through this gap
+                gap_y = random.randint(200, 440)  # Random gap position
+                if self.facing_right:
+                    wall_x = self.arena_left - 20
+                    wall_vel = 4 * self.speed_multiplier
+                else:
+                    wall_x = self.arena_right + 20
+                    wall_vel = -4 * self.speed_multiplier
+                self.flame_wall = {
+                    "rect": pygame.Rect(wall_x, 140, 30, wall_height),
+                    "vel_x": wall_vel,
+                    "gap_y": gap_y,
+                    "gap_height": gap_height,
+                }
+            if self.state_timer <= 0:
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        elif self.state == "summon":
+            self.state_timer -= 1
+            if self.state_timer <= 0:
+                self.summoned_flies = [
+                    Fly(self.rect.x - 60, self.rect.y,
+                        self.rect.x - 200, self.rect.x + 200),
+                    Fly(self.rect.right + 60, self.rect.y,
+                        self.rect.x - 200, self.rect.x + 200),
+                ]
+                self.state = "idle"
+                self.state_timer = int(self.idle_time / self.speed_multiplier)
+
+        # Keep the moth from drifting too far vertically in idle
+        if self.state == "idle" and self.float_y > 350:
+            self.float_y -= 1
+        elif self.state == "idle" and self.float_y < 250:
+            self.float_y += 1
+
+    def _start_attack(self, player):
+        """Initialize whichever attack we're about to do."""
+        if self.state == "fireball_rain":
+            self.state_timer = 60  # 30 frames to fly up, 30 to rain fire
+        elif self.state == "flame_dash":
+            # Dash toward the player
+            self.dash_dir = 1 if player.rect.centerx > self.rect.centerx else -1
+            self.facing_right = self.dash_dir > 0
+            # Position at the correct height for the dash
+            self.rect.y = player.rect.y - 20
+        elif self.state == "flame_wall":
+            self.state_timer = 50
+        elif self.state == "summon":
+            self.state_timer = 30
+
+    def get_all_damage_rects(self):
+        """Return a list of all rects that damage the player.
+        Used by game.py to check fire damage."""
+        rects = []
+        for patch in self.burning_patches:
+            rects.append(patch["rect"])
+        for trail in self.fire_trail:
+            rects.append(trail["rect"])
+        # Flame wall — everything EXCEPT the gap damages
+        if self.flame_wall:
+            wall = self.flame_wall
+            wr = wall["rect"]
+            gap_y = wall["gap_y"]
+            gap_h = wall["gap_height"]
+            # Top section (above the gap)
+            if gap_y > wr.y:
+                rects.append(pygame.Rect(wr.x, wr.y, wr.width, gap_y - wr.y))
+            # Bottom section (below the gap)
+            gap_bottom = gap_y + gap_h
+            if gap_bottom < wr.bottom:
+                rects.append(pygame.Rect(wr.x, gap_bottom, wr.width, wr.bottom - gap_bottom))
+        return rects
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            return
+        draw_rect = self.rect.move(-camera_x, 0)
+
+        # --- Draw the moth body ---
+        body_color = self.color
+        if self.state == "flame_dash":
+            body_color = (255, 200, 50)  # Flash bright yellow when dashing
+
+        # Body — oval shape
+        pygame.draw.ellipse(screen, body_color, draw_rect)
+        # Darker border
+        pygame.draw.ellipse(screen, (180, 80, 10), draw_rect, 2)
+
+        # Wings — two big wings on each side, animated with flapping
+        wing_offset = int(math.sin(self.wing_phase) * 8)
+        cx, cy = draw_rect.centerx, draw_rect.centery
+
+        # Left wing (upper)
+        lw_pts = [
+            (cx - 5, cy - 5),
+            (cx - 40 - wing_offset, cy - 30 - wing_offset),
+            (cx - 35 - wing_offset, cy + 5),
+        ]
+        pygame.draw.polygon(screen, (255, 160, 50), lw_pts)
+        pygame.draw.polygon(screen, (255, 200, 100), lw_pts, 2)
+
+        # Left wing (lower)
+        lw2_pts = [
+            (cx - 5, cy + 5),
+            (cx - 30 - wing_offset // 2, cy + 25 + wing_offset // 2),
+            (cx - 20 - wing_offset // 2, cy - 5),
+        ]
+        pygame.draw.polygon(screen, (255, 140, 30), lw2_pts)
+
+        # Right wing (upper)
+        rw_pts = [
+            (cx + 5, cy - 5),
+            (cx + 40 + wing_offset, cy - 30 - wing_offset),
+            (cx + 35 + wing_offset, cy + 5),
+        ]
+        pygame.draw.polygon(screen, (255, 160, 50), rw_pts)
+        pygame.draw.polygon(screen, (255, 200, 100), rw_pts, 2)
+
+        # Right wing (lower)
+        rw2_pts = [
+            (cx + 5, cy + 5),
+            (cx + 30 + wing_offset // 2, cy + 25 + wing_offset // 2),
+            (cx + 20 + wing_offset // 2, cy - 5),
+        ]
+        pygame.draw.polygon(screen, (255, 140, 30), rw2_pts)
+
+        # Glowing center — a bright yellow-white center on the body
+        pygame.draw.ellipse(screen, (255, 220, 100),
+                            (cx - 12, cy - 10, 24, 20))
+        # Hot core glow
+        glow_pulse = int(math.sin(self.wing_phase * 2) * 3)
+        pygame.draw.ellipse(screen, (255, 255, 180),
+                            (cx - 6 - glow_pulse, cy - 5 - glow_pulse,
+                             12 + glow_pulse * 2, 10 + glow_pulse * 2))
+
+        # Eyes — two glowing red-orange eyes
+        eye_y = draw_rect.y + 18
+        pygame.draw.circle(screen, (255, 50, 0), (cx - 10, eye_y), 5)
+        pygame.draw.circle(screen, (255, 200, 100), (cx - 9, eye_y - 2), 2)
+        pygame.draw.circle(screen, (255, 50, 0), (cx + 10, eye_y), 5)
+        pygame.draw.circle(screen, (255, 200, 100), (cx + 11, eye_y - 2), 2)
+
+        # Antennae
+        pygame.draw.line(screen, (200, 100, 20),
+                         (cx - 8, draw_rect.y + 5),
+                         (cx - 20, draw_rect.y - 15), 2)
+        pygame.draw.line(screen, (200, 100, 20),
+                         (cx + 8, draw_rect.y + 5),
+                         (cx + 20, draw_rect.y - 15), 2)
+        # Antenna tips (glowing dots)
+        pygame.draw.circle(screen, (255, 200, 50), (cx - 20, draw_rect.y - 15), 3)
+        pygame.draw.circle(screen, (255, 200, 50), (cx + 20, draw_rect.y - 15), 3)
+
+        # --- Draw fireballs (falling projectiles) ---
+        for proj in self.projectiles:
+            prect = proj["rect"].move(-camera_x, 0)
+            pygame.draw.rect(screen, (255, 100, 0), prect)
+            # Bright center
+            pygame.draw.rect(screen, (255, 220, 50),
+                             (prect.x + 2, prect.y + 2, 4, 4))
+
+        # --- Draw burning patches on the ground ---
+        for patch in self.burning_patches:
+            prect = patch["rect"].move(-camera_x, 0)
+            alpha = min(200, patch["timer"] + 50)
+            fire_surf = pygame.Surface((prect.width, prect.height), pygame.SRCALPHA)
+            fire_surf.fill((255, 80, 0, alpha))
+            screen.blit(fire_surf, prect)
+            # Flickering flame on top
+            if patch["timer"] % 6 < 3:
+                flame_x = prect.x + prect.width // 2
+                pygame.draw.circle(screen, (255, 200, 50),
+                                   (flame_x, prect.y - 3), 3)
+
+        # --- Draw fire trail (from flame dash) ---
+        for trail in self.fire_trail:
+            trect = trail["rect"].move(-camera_x, 0)
+            alpha = min(200, trail["timer"] * 4)
+            trail_surf = pygame.Surface((trect.width, trect.height), pygame.SRCALPHA)
+            trail_surf.fill((255, 120, 0, alpha))
+            screen.blit(trail_surf, trect)
+
+        # --- Draw flame wall ---
+        if self.flame_wall:
+            wall = self.flame_wall
+            wr = wall["rect"].move(-camera_x, 0)
+            gap_y = wall["gap_y"]
+            gap_h = wall["gap_height"]
+
+            # Top section (above gap)
+            if gap_y > wall["rect"].y:
+                top_h = gap_y - wall["rect"].y
+                top_surf = pygame.Surface((wr.width, top_h), pygame.SRCALPHA)
+                top_surf.fill((255, 60, 0, 180))
+                screen.blit(top_surf, (wr.x, wr.y))
+
+            # Bottom section (below gap)
+            gap_bottom = gap_y + gap_h
+            if gap_bottom < wall["rect"].bottom:
+                bot_h = wall["rect"].bottom - gap_bottom
+                bot_y = wr.y + (gap_bottom - wall["rect"].y)
+                bot_surf = pygame.Surface((wr.width, bot_h), pygame.SRCALPHA)
+                bot_surf.fill((255, 60, 0, 180))
+                screen.blit(bot_surf, (wr.x, bot_y))
+
+            # Draw gap marker (bright yellow edges so player can see it)
+            gap_screen_y = wr.y + (gap_y - wall["rect"].y)
+            pygame.draw.line(screen, (255, 255, 100),
+                             (wr.x, gap_screen_y),
+                             (wr.right, gap_screen_y), 2)
+            pygame.draw.line(screen, (255, 255, 100),
+                             (wr.x, gap_screen_y + gap_h),
+                             (wr.right, gap_screen_y + gap_h), 2)

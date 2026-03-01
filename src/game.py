@@ -4,7 +4,7 @@ import sys
 from src.settings import *
 from src.entities.player import Player
 from src.entities.enemies import Wasp, Fly, Spider
-from src.entities.bosses import WaspKing, SwampBeetleLord, CrystalSpiderQueen
+from src.entities.bosses import WaspKing, SwampBeetleLord, CrystalSpiderQueen, FireMoth
 from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
@@ -105,6 +105,8 @@ def main():
             bg = ParallaxBackground("swamp")
         elif current_island == 2:
             bg = ParallaxBackground("cave")
+        elif current_island == 3:
+            bg = ParallaxBackground("volcano")
         else:
             bg = ParallaxBackground(current_level_in_island % 3)
 
@@ -116,6 +118,8 @@ def main():
                 boss = SwampBeetleLord(2000, 540 - 80)
             elif current_island == 2:
                 boss = CrystalSpiderQueen(2100, 350)  # Floats in the arena
+            elif current_island == 3:
+                boss = FireMoth(2500, 300)  # Flies around the volcano arena
             else:
                 boss = WaspKing(2000, 540 - 90)  # Placeholder for future islands
         else:
@@ -201,9 +205,9 @@ def main():
                 boss.update(player, platforms)
                 # Boss attack sounds
                 if boss.state != prev_boss_state:
-                    if boss.state == "charge" and "boss_charge" in sounds:
+                    if boss.state in ("charge", "flame_dash") and "boss_charge" in sounds:
                         sounds["boss_charge"].play()
-                    elif boss.state in ("slam", "stomp", "ceiling_drop") and "boss_slam" in sounds:
+                    elif boss.state in ("slam", "stomp", "ceiling_drop", "fireball_rain") and "boss_slam" in sounds:
                         sounds["boss_slam"].play()
                     prev_boss_state = boss.state
                 # Add summoned flies/spiders to enemy list
@@ -229,6 +233,13 @@ def main():
                                 player.rect.x += 2  # Counter half the movement
                             if keys_now[pygame.K_RIGHT] or keys_now[pygame.K_d]:
                                 player.rect.x -= 2  # Counter half the movement
+                # Fire Moth — burning patches, fire trail, and flame wall damage
+                if hasattr(boss, 'get_all_damage_rects'):
+                    for fire_rect in boss.get_all_damage_rects():
+                        if player.rect.colliderect(fire_rect):
+                            if player.take_damage(1):
+                                player.vel_y = -8
+                            break  # Only take one hit per frame from fire
 
             # Switch to boss music when entering boss arena
             if boss and boss.alive and not boss_music_started:
