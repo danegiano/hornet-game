@@ -1,5 +1,6 @@
 import pygame
 import sys
+import math
 
 # Constants
 SCREEN_WIDTH = 800
@@ -227,6 +228,7 @@ class Platform:
 
 
 RED = (200, 50, 50)
+GREEN = (50, 200, 50)
 
 class Enemy:
     def __init__(self, x, y, width, height, hp, color):
@@ -276,6 +278,37 @@ class Beetle(Enemy):
                 self.moving_right = True
 
 
+class Fly(Enemy):
+    def __init__(self, x, y, patrol_left, patrol_right):
+        super().__init__(x, y, 24, 20, 1, GREEN)
+        self.base_y = y
+        self.speed = 2.5
+        self.wave_offset = 0
+        self.patrol_left = patrol_left
+        self.patrol_right = patrol_right
+        self.moving_right = True
+
+    def update(self):
+        if not self.alive:
+            if self.death_timer > 0:
+                self.death_timer -= 1
+            return
+
+        # Horizontal patrol
+        if self.moving_right:
+            self.rect.x += self.speed
+            if self.rect.right >= self.patrol_right:
+                self.moving_right = False
+        else:
+            self.rect.x -= self.speed
+            if self.rect.left <= self.patrol_left:
+                self.moving_right = True
+
+        # Sine wave vertical movement
+        self.wave_offset += 0.05
+        self.rect.y = self.base_y + int(math.sin(self.wave_offset) * 30)
+
+
 def create_level(level_num):
     """Return (platforms, enemies) for the given level number (0-indexed)."""
     theme = LEVEL_THEMES[level_num]
@@ -316,6 +349,9 @@ def create_level(level_num):
         enemies = [
             Beetle(100, 540 - 24, 50, 250),
             Beetle(800, 540 - 24, 750, 900),
+            Fly(450, 280, 400, 600),
+            Fly(900, 320, 850, 1100),
+            Fly(1650, 320, 1600, 1850),
             Beetle(1500, 540 - 24, 1400, 1650),
         ]
     elif level_num == 2:  # The Throne Room
@@ -334,7 +370,9 @@ def create_level(level_num):
         ]
         enemies = [
             Beetle(100, 540 - 24, 50, 250),
+            Fly(600, 380, 550, 750),
             Beetle(750, 540 - 24, 700, 830),
+            Fly(1100, 250, 1050, 1250),
             Beetle(1400, 540 - 24, 1350, 1530),
         ]
     else:
