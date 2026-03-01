@@ -153,12 +153,14 @@ def main():
                     elif result == "shop":
                         shop = Shop(save_data)
                         game_state = "shop"
+                        continue
 
             if game_state == "shop" and shop:
                 result = shop.handle_input(event)
                 if result == "close":
                     island_map = IslandMap(save_data)
                     game_state = STATE_ISLAND_MAP
+                    continue
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
