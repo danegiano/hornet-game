@@ -2,7 +2,7 @@ import pygame
 from src.settings import *
 
 
-def draw_hud(screen, player, level_name):
+def draw_hud(screen, player, level_name, coins=0):
     # Health bar background
     pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
     # Health bar fill
@@ -20,6 +20,10 @@ def draw_hud(screen, player, level_name):
     font = pygame.font.Font(None, 28)
     text = font.render(level_name, True, WHITE)
     screen.blit(text, (SCREEN_WIDTH - text.get_width() - 10, 10))
+
+    # Coin counter
+    coin_text = font.render(f"Coins: {coins}", True, (255, 220, 50))
+    screen.blit(coin_text, (SCREEN_WIDTH - coin_text.get_width() - 10, 36))
 
 
 def draw_boss_hp(screen, boss):

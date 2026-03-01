@@ -8,6 +8,8 @@ from src.entities.bosses import WaspKing
 from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
+from src.systems.coins import CoinManager
+from src.save_data import SaveData
 from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
 
@@ -57,9 +59,12 @@ def main():
     camera = None
     boss = None
     bg = None
+    save_data = SaveData()
+    coin_manager = CoinManager()
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started
+        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
+        coin_manager = CoinManager()
         platforms, enemies = create_level(current_level)
         player = Player(50, 400)
         player.hp = PLAYER_MAX_HP
@@ -146,10 +151,17 @@ def main():
                     play_music("boss_music")
                     boss_music_started = True
 
-            combat_events = handle_combat(player, enemies, boss)
+            combat_events, death_positions = handle_combat(player, enemies, boss)
             for evt in combat_events:
                 if evt in sounds:
                     sounds[evt].play()
+            # Spawn coins where enemies died
+            for dx, dy, count in death_positions:
+                coin_manager.spawn(dx, dy, count)
+            # Update coins and collect any that reached the player
+            collected = coin_manager.update(player.rect)
+            if collected > 0:
+                save_data.add_coins(collected)
             camera.update(player)
 
             # Check for death
@@ -189,8 +201,9 @@ def main():
                 enemy.draw(screen, camera.x)
             if boss and boss.alive:
                 boss.draw(screen, camera.x)
+            coin_manager.draw(screen, camera.x)
             player.draw(screen, camera.x)
-            draw_hud(screen, player, LEVEL_THEMES[current_level]["name"])
+            draw_hud(screen, player, LEVEL_THEMES[current_level]["name"], save_data.coins)
             if boss and boss.alive:
                 draw_boss_hp(screen, boss)
         elif game_state == STATE_GAME_OVER:

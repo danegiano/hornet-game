@@ -4,6 +4,7 @@ from src.settings import *
 
 def handle_combat(player, enemies, boss=None):
     hit_events = []
+    death_positions = []  # (x, y, coin_count) for each enemy that dies
 
     # Player attack hits enemies
     if player.attacking and player.attack_rect:
@@ -12,6 +13,7 @@ def handle_combat(player, enemies, boss=None):
                 enemy.take_damage(1)
                 if not enemy.alive:
                     hit_events.append("enemy_die")
+                    death_positions.append((enemy.rect.centerx, enemy.rect.y, 2))
                 else:
                     hit_events.append("hit_enemy")
         # Player attack hits boss
@@ -19,6 +21,7 @@ def handle_combat(player, enemies, boss=None):
             boss.take_damage(1)
             if not boss.alive:
                 hit_events.append("boss_die")
+                death_positions.append((boss.rect.centerx, boss.rect.y, 5))
             else:
                 hit_events.append("hit_enemy")
 
@@ -51,4 +54,4 @@ def handle_combat(player, enemies, boss=None):
                     player.vel_y = -12
                     hit_events.append("player_hurt")
 
-    return hit_events
+    return hit_events, death_positions
