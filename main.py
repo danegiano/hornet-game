@@ -3,50 +3,7 @@ import os
 import sys
 import math
 
-# Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-FPS = 60
-TITLE = "HORNET"
-
-# Colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-
-# Game states
-STATE_TITLE = "title"
-STATE_PLAYING = "playing"
-STATE_LEVEL_TRANSITION = "transition"
-STATE_GAME_OVER = "game_over"
-STATE_VICTORY = "victory"
-
-LEVEL_THEMES = [
-    {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "Level 1: The Garden"},
-    {"bg": (180, 160, 80),  "platform": (160, 120, 60),  "name": "Level 2: The Hive"},
-    {"bg": (100, 40, 40),   "platform": (80, 80, 80),    "name": "Level 3: The Throne Room"},
-]
-
-# Player constants
-PLAYER_WIDTH = 32
-PLAYER_HEIGHT = 32
-PLAYER_SPEED = 5
-GRAVITY = 0.8
-JUMP_POWER = -15
-
-HOVER_MAX = 60        # Frames of hover time (~1 second at 60fps)
-HOVER_GRAVITY = 0.15  # Much slower fall while hovering
-
-ATTACK_RANGE = 50
-ATTACK_WIDTH = 10
-ATTACK_DURATION = 10   # Frames the attack hitbox is active
-ATTACK_COOLDOWN = 20   # Frames before you can attack again
-
-PLAYER_MAX_HP = 5
-INVINCIBILITY_FRAMES = 60  # 1 second of invincibility after hit
-
-YELLOW = (255, 220, 50)
-DARK_YELLOW = (200, 170, 0)
-ORANGE = (230, 150, 30)
+from src.settings import *
 
 
 class Player:
@@ -280,6 +237,47 @@ class Player:
             screen.blit(attack_surface, atk_draw)
 
 
+class ParallaxBackground:
+    def __init__(self, level_num):
+        self.layers = []
+        self.level_num = level_num
+        if level_num == 0:
+            self.sky_color = (135, 200, 235)
+            try:
+                l1 = pygame.image.load(os.path.join("sprites", "bg_garden_1.png")).convert_alpha()
+                l2 = pygame.image.load(os.path.join("sprites", "bg_garden_2.png")).convert_alpha()
+                l3 = pygame.image.load(os.path.join("sprites", "bg_garden_3.png")).convert_alpha()
+                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
+            except Exception as e:
+                pass
+        elif level_num == 1:
+            self.sky_color = (110, 80, 20)
+            try:
+                l1 = pygame.image.load(os.path.join("sprites", "bg_hive_1.png")).convert_alpha()
+                l2 = pygame.image.load(os.path.join("sprites", "bg_hive_2.png")).convert_alpha()
+                l3 = pygame.image.load(os.path.join("sprites", "bg_hive_3.png")).convert_alpha()
+                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
+            except Exception as e:
+                pass
+        else:
+            self.sky_color = (60, 20, 20)
+            try:
+                l1 = pygame.image.load(os.path.join("sprites", "bg_tower_1.png")).convert_alpha()
+                l2 = pygame.image.load(os.path.join("sprites", "bg_tower_2.png")).convert_alpha()
+                l3 = pygame.image.load(os.path.join("sprites", "bg_tower_3.png")).convert_alpha()
+                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
+            except Exception as e:
+                pass
+
+    def draw(self, screen, camera_x):
+        screen.fill(self.sky_color)
+        for img, speed in self.layers:
+            w = img.get_width()
+            offset_x = (camera_x * speed) % w
+            screen.blit(img, (-offset_x, 0))
+            if offset_x > 0:
+                screen.blit(img, (-offset_x + w, 0))
+
 class Camera:
     def __init__(self):
         self.x = 0
@@ -296,20 +294,61 @@ class Platform:
     def __init__(self, x, y, width, height, color=(100, 180, 100)):
         self.rect = pygame.Rect(x, y, width, height)
         self.color = color
+        self.is_garden = (color == (100, 180, 100))
+        self.is_hive = (color == (160, 120, 60))
+        self.is_tower = (color == (80, 80, 80))
 
-    def draw(self, screen, camera_x):
-        # Shift the platform left by camera_x so it scrolls with the world
+    def draw(self, screen, camera_x, time_ms=0):
         draw_rect = self.rect.move(-camera_x, 0)
         pygame.draw.rect(screen, self.color, draw_rect)
+        pygame.draw.rect(screen, (30,50,30), draw_rect, 2)
 
+        if self.is_garden:
+            import math
+            for gx in range(0, self.rect.width, 10):
+                world_x = self.rect.x + gx
+                wind = math.sin(time_ms / 300.0 + world_x / 50.0) * 8
+                start_pos = (draw_rect.x + gx, draw_rect.y)
+                end_pos = (draw_rect.x + gx + int(wind), draw_rect.y - 12)
+                pygame.draw.line(screen, (60, 200, 60), start_pos, end_pos, 2)
 
-RED = (200, 50, 50)
-GREEN = (50, 200, 50)
-PURPLE = (150, 50, 200)
+        elif self.is_hive:
+            import math
+            # Draw honey comb pattern inside the platform
+            for hx in range(10, self.rect.width, 30):
+                pygame.draw.ellipse(screen, (180, 140, 40), (draw_rect.x + hx, draw_rect.y + 5, 20, 15))
+            
+            # Draw dripping honey off the bottom edge!
+            for dx in range(15, self.rect.width, 40):
+                world_x = self.rect.x + dx
+                # Make honey drip down slowly over time and snap back
+                drip_y = (time_ms / 20.0 + world_x * 7) % 30
+                
+                # A strand of honey connecting the drip
+                pygame.draw.line(screen, (255, 200, 0), (draw_rect.x + dx, draw_rect.bottom), (draw_rect.x + dx, draw_rect.bottom + int(drip_y)), 3)
+                # The actual drop
+                pygame.draw.circle(screen, (255, 210, 50), (draw_rect.x + dx, draw_rect.bottom + int(drip_y)), 4)
 
-# Wasp (yellow) sprite colors
-WASP_YELLOW = (255, 220, 50)
-WASP_YELLOW_DARK = (200, 170, 0)
+        elif self.is_tower:
+            import math
+            # Draw stone bricks pattern
+            for bx in range(0, self.rect.width, 40):
+                pygame.draw.line(screen, (50, 50, 50), (draw_rect.x + bx, draw_rect.y), (draw_rect.x + bx, draw_rect.bottom), 2)
+            for by in range(0, self.rect.height, 20):
+                pygame.draw.line(screen, (50, 50, 50), (draw_rect.x, draw_rect.y + by), (draw_rect.right, draw_rect.y + by), 2)
+            
+            # Animated flickering torches along the top edge
+            for tx in range(20, self.rect.width, 80):
+                world_x = self.rect.x + tx
+                flicker = math.sin(time_ms / 50.0 + world_x) * 4 + math.cos(time_ms / 100.0) * 2
+                
+                # Torch base
+                pygame.draw.rect(screen, (60, 40, 20), (draw_rect.x + tx - 4, draw_rect.y - 15, 8, 15))
+                # Flames
+                flame_y = draw_rect.y - 15 - int(flicker)
+                pygame.draw.circle(screen, (255, 100, 0), (draw_rect.x + tx, flame_y), 6 + int(flicker/2))
+                pygame.draw.circle(screen, (255, 200, 0), (draw_rect.x + tx, flame_y + 2), 3 + int(flicker/3))
+
 
 class Enemy:
     def __init__(self, x, y, width, height, hp, color):
@@ -400,29 +439,6 @@ class Wasp(Enemy):
         screen.blit(spr, (sx, sy))
 
 
-class Wasp(Enemy):
-    def __init__(self, x, y, patrol_left, patrol_right):
-        super().__init__(x, y, 36, 24, 2, RED)
-        self.speed = 1.5
-        self.patrol_left = patrol_left
-        self.patrol_right = patrol_right
-        self.moving_right = True
-
-    def update(self):
-        if not self.alive:
-            if self.death_timer > 0:
-                self.death_timer -= 1
-            return
-
-        if self.moving_right:
-            self.rect.x += self.speed
-            if self.rect.right >= self.patrol_right:
-                self.moving_right = False
-        else:
-            self.rect.x -= self.speed
-            if self.rect.left <= self.patrol_left:
-                self.moving_right = True
-
 
 class Fly(Enemy):
     def __init__(self, x, y, patrol_left, patrol_right):
@@ -434,13 +450,27 @@ class Fly(Enemy):
         self.patrol_right = patrol_right
         self.moving_right = True
 
+        self.scale = 2
+        self.spr0 = pygame.image.load(os.path.join("sprites", "fly_black_0.png")).convert_alpha()
+        self.spr1 = pygame.image.load(os.path.join("sprites", "fly_black_1.png")).convert_alpha()
+        self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
+        self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
+        self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+        self.anim_t = 0
+        self.anim_f = 0
+
     def update(self):
         if not self.alive:
             if self.death_timer > 0:
                 self.death_timer -= 1
             return
 
-        # Horizontal patrol
+        self.anim_t += 1
+        if self.anim_t >= 4:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+
         if self.moving_right:
             self.rect.x += self.speed
             if self.rect.right >= self.patrol_right:
@@ -450,9 +480,25 @@ class Fly(Enemy):
             if self.rect.left <= self.patrol_left:
                 self.moving_right = True
 
-        # Sine wave vertical movement
+        import math
         self.wave_offset += 0.05
         self.rect.y = self.base_y + int(math.sin(self.wave_offset) * 30)
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            if self.death_timer > 0:
+                draw_rect = self.rect.move(-camera_x, 0)
+                pygame.draw.rect(screen, WHITE, draw_rect)
+            return
+
+        draw_rect = self.rect.move(-camera_x, 0)
+        spr = self.spr0 if self.anim_f == 0 else self.spr1
+        spr_flip = self.spr0_flip if self.anim_f == 0 else self.spr1_flip
+
+        spr = spr if self.moving_right else spr_flip
+        sx = draw_rect.centerx - spr.get_width() // 2
+        sy = draw_rect.centery - spr.get_height() // 2
+        screen.blit(spr, (sx, sy))
 
 
 class Spider(Enemy):
@@ -467,13 +513,28 @@ class Spider(Enemy):
         self.patrol_left = patrol_left
         self.patrol_right = patrol_right
 
+        self.scale = 2
+        self.spr0 = pygame.image.load(os.path.join("sprites", "spider_brown_0.png")).convert_alpha()
+        self.spr1 = pygame.image.load(os.path.join("sprites", "spider_brown_1.png")).convert_alpha()
+        self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
+        self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
+        self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+        self.anim_t = 0
+        self.anim_f = 0
+        self.moving_right = True
+
     def update(self, player_x=None):
         if not self.alive:
             if self.death_timer > 0:
                 self.death_timer -= 1
             return
 
+        moving = False
+        old_x = self.rect.x
+
         if self.lunging:
+            moving = True
             if self.rect.centerx < self.lunge_target_x:
                 self.rect.x += self.speed
                 if self.rect.centerx >= self.lunge_target_x:
@@ -485,6 +546,7 @@ class Spider(Enemy):
                     self.lunging = False
                     self.returning = True
         elif self.returning:
+            moving = True
             if abs(self.rect.x - self.home_x) < 3:
                 self.rect.x = self.home_x
                 self.returning = False
@@ -498,6 +560,36 @@ class Spider(Enemy):
                 self.lunging = True
                 self.lunge_target_x = player_x
 
+        if self.rect.x > old_x:
+            self.moving_right = True
+        elif self.rect.x < old_x:
+            self.moving_right = False
+
+        if moving:
+            self.anim_t += 1
+            if self.anim_t >= 6:
+                self.anim_t = 0
+                self.anim_f = 1 - self.anim_f
+        else:
+            self.anim_t = 0
+            self.anim_f = 0
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            if self.death_timer > 0:
+                draw_rect = self.rect.move(-camera_x, 0)
+                pygame.draw.rect(screen, WHITE, draw_rect)
+            return
+
+        draw_rect = self.rect.move(-camera_x, 0)
+        spr = self.spr0 if self.anim_f == 0 else self.spr1
+        spr_flip = self.spr0_flip if self.anim_f == 0 else self.spr1_flip
+
+        spr = spr if self.moving_right else spr_flip
+        sx = draw_rect.centerx - spr.get_width() // 2
+        sy = draw_rect.centery - spr.get_height() // 2
+        screen.blit(spr, (sx, sy))
+
 
 class WaspKing:
     def __init__(self, x, y):
@@ -507,6 +599,12 @@ class WaspKing:
         self.color = ORANGE
         self.alive = True
         self.vel_y = 0
+
+        self.spr0 = pygame.image.load(os.path.join("sprites", "king_0.png")).convert_alpha()
+        self.spr1 = pygame.image.load(os.path.join("sprites", "king_1.png")).convert_alpha()
+        self.anim_t = 0
+        self.anim_f = 0
+        self.facing_right = False
 
         # Attack pattern state
         self.state = "idle"
@@ -538,6 +636,13 @@ class WaspKing:
         if not self.alive:
             return
 
+        # Animation
+        self.anim_t += 1
+        flap_speed = 3 if self.state in ["charge", "slam"] else 8
+        if self.anim_t >= flap_speed:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+
         # Apply gravity
         self.vel_y += GRAVITY
         self.rect.y += self.vel_y
@@ -564,8 +669,10 @@ class WaspKing:
             speed = self.charge_speed * self.speed_multiplier
             if self.rect.centerx < self.charge_target_x:
                 self.rect.x += speed
+                self.facing_right = True
             else:
                 self.rect.x -= speed
+                self.facing_right = False
             self.state_timer -= 1
             if self.state_timer <= 0 or abs(self.rect.centerx - self.charge_target_x) < 10:
                 self.state = "idle"
@@ -615,18 +722,20 @@ class WaspKing:
         if not self.alive:
             return
         draw_rect = self.rect.move(-camera_x, 0)
-        pygame.draw.rect(screen, self.color, draw_rect)
-        # Eyes
-        eye_y = draw_rect.top + 20
-        pygame.draw.circle(screen, RED, (draw_rect.left + 30, eye_y), 8)
-        pygame.draw.circle(screen, RED, (draw_rect.right - 30, eye_y), 8)
+        
+        # Sprite
+        spr = self.spr0 if self.anim_f == 0 else self.spr1
+        if self.facing_right:
+            spr = pygame.transform.flip(spr, True, False)
+            
+        screen.blit(spr, draw_rect.topleft)
+        
         # Shockwave
         if self.shockwave and self.shockwave_timer > 0:
             sw = self.shockwave.move(-camera_x, 0)
             wave_surface = pygame.Surface((sw.width, sw.height), pygame.SRCALPHA)
             wave_surface.fill((255, 100, 50, 150))
             screen.blit(wave_surface, sw)
-
 
 def create_level(level_num):
     """Return (platforms, enemies) for the given level number (0-indexed)."""
@@ -875,13 +984,15 @@ def main():
     player = None
     camera = None
     boss = None
+    bg = None
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss, prev_boss_state, boss_music_started
+        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started
         platforms, enemies = create_level(current_level)
         player = Player(50, 400)
         player.hp = PLAYER_MAX_HP
         camera = Camera()
+        bg = ParallaxBackground(current_level)
         # Spawn boss on level 3 (index 2)
         if current_level == 2:
             boss = WaspKing(2000, 540 - 90)  # In the boss arena
@@ -995,9 +1106,13 @@ def main():
         if game_state == STATE_TITLE:
             draw_title_screen(screen)
         elif game_state == STATE_PLAYING:
-            screen.fill(LEVEL_THEMES[current_level]["bg"])
+            time_ms = pygame.time.get_ticks()
+            if bg:
+                bg.draw(screen, camera.x)
+            else:
+                screen.fill(LEVEL_THEMES[current_level]["bg"])
             for p in platforms:
-                p.draw(screen, camera.x)
+                p.draw(screen, camera.x, time_ms)
             for enemy in enemies:
                 enemy.draw(screen, camera.x)
             if boss and boss.alive:

@@ -1,0 +1,58 @@
+# =============================================================================
+# HORNET - Game Settings & Constants
+# =============================================================================
+# All the numbers and colors that control how the game looks and feels.
+# Change values here to tweak the game without digging through code.
+# =============================================================================
+
+# Screen / window
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+FPS = 60
+TITLE = "HORNET"
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+YELLOW = (255, 220, 50)
+DARK_YELLOW = (200, 170, 0)
+ORANGE = (230, 150, 30)
+RED = (200, 50, 50)
+GREEN = (50, 200, 50)
+PURPLE = (150, 50, 200)
+
+# Wasp (yellow) sprite colors
+WASP_YELLOW = (255, 220, 50)
+WASP_YELLOW_DARK = (200, 170, 0)
+
+# Game states
+STATE_TITLE = "title"
+STATE_PLAYING = "playing"
+STATE_LEVEL_TRANSITION = "transition"
+STATE_GAME_OVER = "game_over"
+STATE_VICTORY = "victory"
+
+# Level themes — background color, platform color, and display name
+LEVEL_THEMES = [
+    {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "Level 1: The Garden"},
+    {"bg": (180, 160, 80),  "platform": (160, 120, 60),  "name": "Level 2: The Hive"},
+    {"bg": (100, 40, 40),   "platform": (80, 80, 80),    "name": "Level 3: The Throne Room"},
+]
+
+# Player constants
+PLAYER_WIDTH = 32
+PLAYER_HEIGHT = 32
+PLAYER_SPEED = 5
+GRAVITY = 0.8
+JUMP_POWER = -15
+
+HOVER_MAX = 60        # Frames of hover time (~1 second at 60fps)
+HOVER_GRAVITY = 0.15  # Much slower fall while hovering
+
+ATTACK_RANGE = 50
+ATTACK_WIDTH = 10
+ATTACK_DURATION = 10   # Frames the attack hitbox is active
+ATTACK_COOLDOWN = 20   # Frames before you can attack again
+
+PLAYER_MAX_HP = 5
+INVINCIBILITY_FRAMES = 60  # 1 second of invincibility after hit
