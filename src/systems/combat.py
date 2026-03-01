@@ -39,6 +39,24 @@ def handle_combat(player, enemies, boss=None):
                     player.rect.x += 30
                 player.vel_y = -8  # Small bounce up
                 hit_events.append("player_hurt")
+                # Poison trait — apply poison on contact damage
+                if hasattr(enemy, 'has_trait') and enemy.has_trait("poison"):
+                    player.apply_poison()
+
+    # Enemy projectiles damage player
+    for enemy in enemies:
+        if not enemy.alive:
+            continue
+        for proj in getattr(enemy, 'projectiles', [])[:]:
+            if player.rect.colliderect(proj["rect"]):
+                hit = player.take_damage(1)
+                if hit:
+                    player.vel_y = -6
+                    hit_events.append("player_hurt")
+                    # Poison on projectile hit too
+                    if hasattr(enemy, 'has_trait') and enemy.has_trait("poison"):
+                        player.apply_poison()
+                enemy.projectiles.remove(proj)
 
     # Boss damages player (skip if boss is invisible during teleport)
     boss_visible = getattr(boss, 'teleport_visible', True) if boss else True

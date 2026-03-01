@@ -203,10 +203,7 @@ def main():
                     hover_channel = None
 
             for enemy in enemies:
-                if isinstance(enemy, Spider):
-                    enemy.update(player.rect.centerx)
-                else:
-                    enemy.update()
+                enemy.update(player_x=player.rect.centerx, player_y=player.rect.centery)
             if boss and boss.alive:
                 boss.update(player, platforms)
                 # Boss attack sounds
