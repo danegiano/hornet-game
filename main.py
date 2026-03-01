@@ -1,4 +1,5 @@
 import pygame
+import os
 import sys
 import math
 
@@ -26,8 +27,8 @@ LEVEL_THEMES = [
 ]
 
 # Player constants
-PLAYER_WIDTH = 40
-PLAYER_HEIGHT = 30
+PLAYER_WIDTH = 32
+PLAYER_HEIGHT = 32
 PLAYER_SPEED = 5
 GRAVITY = 0.8
 JUMP_POWER = -15
@@ -50,6 +51,32 @@ ORANGE = (230, 150, 30)
 
 class Player:
     def __init__(self, x, y):
+        # Load player sprites once
+        self.sprite_scale = 2  # draw sprite bigger on screen
+        self.spr_idle0 = pygame.image.load(os.path.join("sprites", "hornet_idle_0.png")).convert_alpha()
+        self.spr_idle1 = pygame.image.load(os.path.join("sprites", "hornet_idle_1.png")).convert_alpha()
+        self.spr_attack0 = pygame.image.load(os.path.join("sprites", "hornet_attack_0.png")).convert_alpha()
+        self.spr_run0 = pygame.image.load(os.path.join("sprites", "hornet_run_0.png")).convert_alpha()
+        self.spr_run1 = pygame.image.load(os.path.join("sprites", "hornet_run_1.png")).convert_alpha()
+        self.spr_idle0_flip = pygame.transform.flip(self.spr_idle0, True, False)
+        self.spr_idle1_flip = pygame.transform.flip(self.spr_idle1, True, False)
+        self.spr_attack0_flip = pygame.transform.flip(self.spr_attack0, True, False)
+        self.spr_run0_flip = pygame.transform.flip(self.spr_run0, True, False)
+        self.spr_run1_flip = pygame.transform.flip(self.spr_run1, True, False)
+        self.spr_idle0 = pygame.transform.scale(self.spr_idle0, (self.spr_idle0.get_width()*self.sprite_scale, self.spr_idle0.get_height()*self.sprite_scale))
+        self.spr_idle1 = pygame.transform.scale(self.spr_idle1, (self.spr_idle1.get_width()*self.sprite_scale, self.spr_idle1.get_height()*self.sprite_scale))
+        self.spr_attack0 = pygame.transform.scale(self.spr_attack0, (self.spr_attack0.get_width()*self.sprite_scale, self.spr_attack0.get_height()*self.sprite_scale))
+        self.spr_run0 = pygame.transform.scale(self.spr_run0, (self.spr_run0.get_width()*self.sprite_scale, self.spr_run0.get_height()*self.sprite_scale))
+        self.spr_run1 = pygame.transform.scale(self.spr_run1, (self.spr_run1.get_width()*self.sprite_scale, self.spr_run1.get_height()*self.sprite_scale))
+        self.spr_idle0_flip = pygame.transform.scale(self.spr_idle0_flip, (self.spr_idle0_flip.get_width()*self.sprite_scale, self.spr_idle0_flip.get_height()*self.sprite_scale))
+        self.spr_idle1_flip = pygame.transform.scale(self.spr_idle1_flip, (self.spr_idle1_flip.get_width()*self.sprite_scale, self.spr_idle1_flip.get_height()*self.sprite_scale))
+        self.spr_attack0_flip = pygame.transform.scale(self.spr_attack0_flip, (self.spr_attack0_flip.get_width()*self.sprite_scale, self.spr_attack0_flip.get_height()*self.sprite_scale))
+        self.spr_run0_flip = pygame.transform.scale(self.spr_run0_flip, (self.spr_run0_flip.get_width()*self.sprite_scale, self.spr_run0_flip.get_height()*self.sprite_scale))
+        self.spr_run1_flip = pygame.transform.scale(self.spr_run1_flip, (self.spr_run1_flip.get_width()*self.sprite_scale, self.spr_run1_flip.get_height()*self.sprite_scale))
+        self.anim_timer = 0
+        self.anim_frame = 0
+        self.anim_mode = "idle"
+
         # rect is the rectangle that represents the player's body
         self.rect = pygame.Rect(x, y, PLAYER_WIDTH, PLAYER_HEIGHT)
         # vel_y is vertical velocity — positive = falling, negative = rising
@@ -81,6 +108,31 @@ class Player:
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.rect.x -= PLAYER_SPEED
             self.facing_right = False
+
+        # Advance run animation when moving on ground
+        moving = (keys[pygame.K_RIGHT] or keys[pygame.K_d] or keys[pygame.K_LEFT] or keys[pygame.K_a])
+
+        # Set animation mode
+        if self.attacking:
+            self.anim_mode = "attack"
+        elif moving and self.on_ground:
+            self.anim_mode = "run"
+        else:
+            self.anim_mode = "idle"
+
+        if self.anim_mode == "run":
+            self.anim_timer += 1
+            if self.anim_timer >= 8:
+                self.anim_timer = 0
+                self.anim_frame = 1 - self.anim_frame
+        elif self.anim_mode == "idle":
+            self.anim_timer += 1
+            if self.anim_timer >= 20:
+                self.anim_timer = 0
+                self.anim_frame = 1 - self.anim_frame
+        else:
+            self.anim_timer = 0
+            self.anim_frame = 0
 
         # Don't go left off screen start
         if self.rect.left < 0:
@@ -177,12 +229,23 @@ class Player:
 
         # Shift the player's draw position left by camera_x so it moves with the world
         draw_rect = self.rect.move(-camera_x, 0)
+        # Draw animated sprite
+        if self.anim_mode == "attack":
+            spr = self.spr_attack0 if self.facing_right else self.spr_attack0_flip
+        elif self.anim_mode == "run":
+            if self.anim_frame == 0:
+                spr = self.spr_run0 if self.facing_right else self.spr_run0_flip
+            else:
+                spr = self.spr_run1 if self.facing_right else self.spr_run1_flip
+        else:
+            if self.anim_frame == 0:
+                spr = self.spr_idle0 if self.facing_right else self.spr_idle0_flip
+            else:
+                spr = self.spr_idle1 if self.facing_right else self.spr_idle1_flip
+        spr_x = draw_rect.centerx - spr.get_width() // 2
+        spr_y = draw_rect.centery - spr.get_height() // 2
+        screen.blit(spr, (spr_x, spr_y))
 
-        # Draw the yellow body rectangle
-        pygame.draw.rect(screen, YELLOW, draw_rect)
-
-        # Draw a darker border around the body so it looks cleaner
-        pygame.draw.rect(screen, DARK_YELLOW, draw_rect, 2)
 
         # --- Stinger triangle ---
         # The stinger pokes out from the front of the hornet
@@ -240,6 +303,10 @@ RED = (200, 50, 50)
 GREEN = (50, 200, 50)
 PURPLE = (150, 50, 200)
 
+# Wasp (yellow) sprite colors
+WASP_YELLOW = (255, 220, 50)
+WASP_YELLOW_DARK = (200, 170, 0)
+
 class Enemy:
     def __init__(self, x, y, width, height, hp, color):
         self.rect = pygame.Rect(x, y, width, height)
@@ -264,7 +331,72 @@ class Enemy:
         draw_rect = self.rect.move(-camera_x, 0)
         pygame.draw.rect(screen, self.color, draw_rect)
 
-class Beetle(Enemy):
+class Wasp(Enemy):
+    def __init__(self, x, y, patrol_left, patrol_right):
+        super().__init__(x, y, 36, 24, 2, WASP_YELLOW)
+        self.speed = 2.2
+        self.patrol_left = patrol_left
+        self.patrol_right = patrol_right
+        self.moving_right = True
+
+        # Load wasp sprites
+        self.scale = 2
+        self.spr0 = pygame.image.load(os.path.join("sprites", "wasp_yellow_0.png")).convert_alpha()
+        self.spr1 = pygame.image.load(os.path.join("sprites", "wasp_yellow_1.png")).convert_alpha()
+        self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
+        self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
+        self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+
+        self.anim_t = 0
+        self.anim_f = 0
+
+    def update(self):
+        if not self.alive:
+            if self.death_timer > 0:
+                self.death_timer -= 1
+            return
+
+        # Flap animation
+        self.anim_t += 1
+        if self.anim_t >= 10:
+            self.anim_t = 0
+            self.anim_f = 1 - self.anim_f
+
+        # Patrol
+        if self.moving_right:
+            self.rect.x += self.speed
+            if self.rect.right >= self.patrol_right:
+                self.moving_right = False
+        else:
+            self.rect.x -= self.speed
+            if self.rect.left <= self.patrol_left:
+                self.moving_right = True
+
+    def draw(self, screen, camera_x):
+        if not self.alive:
+            if self.death_timer > 0:
+                draw_rect = self.rect.move(-camera_x, 0)
+                pygame.draw.rect(screen, WHITE, draw_rect)
+            return
+
+        draw_rect = self.rect.move(-camera_x, 0)
+        if self.anim_f == 0:
+            spr = self.spr0
+            spr_flip = self.spr0_flip
+        else:
+            spr = self.spr1
+            spr_flip = self.spr1_flip
+
+        # Face direction based on movement
+        spr = spr if self.moving_right else spr_flip
+
+        sx = draw_rect.centerx - spr.get_width() // 2
+        sy = draw_rect.centery - spr.get_height() // 2
+        screen.blit(spr, (sx, sy))
+
+
+class Wasp(Enemy):
     def __init__(self, x, y, patrol_left, patrol_right):
         super().__init__(x, y, 36, 24, 2, RED)
         self.speed = 1.5
@@ -510,10 +642,10 @@ def create_level(level_num):
             Platform(2000, 540, 200, 60, color),
         ]
         enemies = [
-            Beetle(300, 540 - 24, 250, 500),
-            Beetle(800, 540 - 24, 750, 1050),
-            Beetle(1300, 540 - 24, 1200, 1500),
-            Beetle(1750, 540 - 24, 1700, 1950),
+            Wasp(300, 540 - 24, 250, 500),
+            Wasp(800, 540 - 24, 750, 1050),
+            Wasp(1300, 540 - 24, 1200, 1500),
+            Wasp(1750, 540 - 24, 1700, 1950),
         ]
     elif level_num == 1:  # The Hive
         platforms = [
@@ -530,12 +662,12 @@ def create_level(level_num):
             Platform(1850, 540, 400, 60, color),
         ]
         enemies = [
-            Beetle(100, 540 - 24, 50, 250),
-            Beetle(800, 540 - 24, 750, 900),
+            Wasp(100, 540 - 24, 50, 250),
+            Wasp(800, 540 - 24, 750, 900),
             Fly(450, 280, 400, 600),
             Fly(900, 320, 850, 1100),
             Fly(1650, 320, 1600, 1850),
-            Beetle(1500, 540 - 24, 1400, 1650),
+            Wasp(1500, 540 - 24, 1400, 1650),
         ]
     elif level_num == 2:  # The Throne Room
         platforms = [
@@ -552,13 +684,13 @@ def create_level(level_num):
             Platform(1700, 540, 800, 60, color),  # Boss arena
         ]
         enemies = [
-            Beetle(100, 540 - 24, 50, 250),
+            Wasp(100, 540 - 24, 50, 250),
             Spider(450, 350 - 28, 400, 530),
             Fly(600, 380, 550, 750),
-            Beetle(750, 540 - 24, 700, 830),
+            Wasp(750, 540 - 24, 700, 830),
             Spider(950, 380 - 28, 900, 1050),
             Fly(1100, 250, 1050, 1250),
-            Beetle(1400, 540 - 24, 1350, 1530),
+            Wasp(1400, 540 - 24, 1350, 1530),
         ]
     else:
         platforms = []
@@ -682,6 +814,35 @@ def draw_boss_hp(screen, boss):
 
 def main():
     pygame.init()
+    pygame.mixer.init()
+
+    # Load sound effects
+    sound_dir = os.path.join("assets", "sounds")
+    sounds = {}
+    sound_names = [
+        "jump", "hover", "attack", "hit_enemy", "player_hurt",
+        "enemy_die", "boss_charge", "boss_slam", "boss_die", "level_complete"
+    ]
+    for name in sound_names:
+        path = os.path.join(sound_dir, f"{name}.wav")
+        if os.path.exists(path):
+            sounds[name] = pygame.mixer.Sound(path)
+            sounds[name].set_volume(0.5)
+    # Hover sound needs to loop, set it quieter
+    if "hover" in sounds:
+        sounds["hover"].set_volume(0.3)
+
+    def play_music(track_name):
+        """Load and play background music on loop."""
+        path = os.path.join(sound_dir, f"{track_name}.wav")
+        if os.path.exists(path):
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(0.3)
+            pygame.mixer.music.play(-1)  # -1 = loop forever
+
+    def stop_music():
+        pygame.mixer.music.stop()
+
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
