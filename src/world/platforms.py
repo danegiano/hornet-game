@@ -10,6 +10,7 @@ class Platform:
         self.is_garden = (color == (100, 180, 100))
         self.is_hive = (color == (160, 120, 60))
         self.is_tower = (color == (80, 80, 80))
+        self.is_swamp = (color == (60, 100, 50))
 
     def draw(self, screen, camera_x, time_ms=0):
         draw_rect = self.rect.move(-camera_x, 0)
@@ -61,3 +62,32 @@ class Platform:
                 flame_y = draw_rect.y - 15 - int(flicker)
                 pygame.draw.circle(screen, (255, 100, 0), (draw_rect.x + tx, flame_y), 6 + int(flicker/2))
                 pygame.draw.circle(screen, (255, 200, 0), (draw_rect.x + tx, flame_y + 2), 3 + int(flicker/3))
+
+        elif self.is_swamp:
+            import math
+            # Mossy top edge — a wavy green line
+            for mx in range(0, self.rect.width, 6):
+                world_x = self.rect.x + mx
+                moss_h = int(math.sin(world_x / 15.0) * 3 + 4)
+                pygame.draw.rect(screen, (40, 130, 40),
+                                 (draw_rect.x + mx, draw_rect.y - moss_h, 6, moss_h))
+
+            # Bubbles rising from the platform (animated)
+            for bx in range(25, self.rect.width, 50):
+                world_x = self.rect.x + bx
+                # Each bubble rises over time, then resets
+                bubble_cycle = (time_ms / 15.0 + world_x * 3) % 40
+                bubble_y = draw_rect.y - int(bubble_cycle)
+                bubble_r = max(2, 4 - int(bubble_cycle / 12))
+                if bubble_cycle < 35:
+                    pygame.draw.circle(screen, (80, 160, 80), (draw_rect.x + bx, bubble_y), bubble_r)
+                    pygame.draw.circle(screen, (120, 200, 100), (draw_rect.x + bx - 1, bubble_y - 1), max(1, bubble_r - 1))
+
+            # Hanging vines from bottom edge
+            for vx in range(10, self.rect.width, 35):
+                world_x = self.rect.x + vx
+                vine_sway = math.sin(time_ms / 400.0 + world_x / 30.0) * 5
+                vine_len = 8 + (world_x % 12)
+                start = (draw_rect.x + vx, draw_rect.bottom)
+                end = (draw_rect.x + vx + int(vine_sway), draw_rect.bottom + vine_len)
+                pygame.draw.line(screen, (30, 90, 30), start, end, 2)

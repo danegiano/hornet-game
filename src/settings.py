@@ -46,11 +46,25 @@ ISLAND_DATA = [
 ]
 
 # Level themes — background color, platform color, and display name
-LEVEL_THEMES = [
-    {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "Level 1: The Garden"},
-    {"bg": (180, 160, 80),  "platform": (160, 120, 60),  "name": "Level 2: The Hive"},
-    {"bg": (100, 40, 40),   "platform": (80, 80, 80),    "name": "Level 3: The Throne Room"},
-]
+# Organized by island: LEVEL_THEMES[island_index][level_index]
+LEVEL_THEMES = {
+    # Island 0 — The Garden Isles
+    0: [
+        {"bg": (135, 200, 235), "platform": (100, 180, 100), "name": "The Garden"},
+        {"bg": (180, 160, 80),  "platform": (160, 120, 60),  "name": "The Hive"},
+        {"bg": (100, 40, 40),   "platform": (80, 80, 80),    "name": "The Throne Room"},
+    ],
+    # Island 1 — The Swamp
+    1: [
+        {"bg": (50, 70, 35),  "platform": (60, 100, 50), "name": "Murky Shallows"},
+        {"bg": (40, 60, 30),  "platform": (60, 100, 50), "name": "Twisted Roots"},
+        {"bg": (35, 50, 25),  "platform": (60, 100, 50), "name": "Poison Bog"},
+        {"bg": (30, 40, 20),  "platform": (60, 100, 50), "name": "Beetle Lord's Lair"},
+    ],
+}
+
+# Swamp platform color constant
+SWAMP_GREEN = (60, 100, 50)
 
 # Player constants
 PLAYER_WIDTH = 32

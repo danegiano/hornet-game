@@ -4,7 +4,7 @@ import sys
 from src.settings import *
 from src.entities.player import Player
 from src.entities.enemies import Wasp, Fly, Spider
-from src.entities.bosses import WaspKing
+from src.entities.bosses import WaspKing, SwampBeetleLord
 from src.world.levels import create_level, check_level_complete
 from src.world.camera import Camera, ParallaxBackground
 from src.systems.combat import handle_combat
@@ -86,33 +86,34 @@ def main():
     coin_manager = CoinManager()
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager, current_level
+        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
         coin_manager = CoinManager()
 
-        # Map island + level-in-island to a create_level() index.
-        # Island 0 has real levels: 0, 1, 2.  Other islands reuse them as placeholders.
         island_info = ISLAND_DATA[current_island]
         is_boss_level = (current_level_in_island == island_info["levels"] - 1)
 
-        if current_island == 0:
-            # Island 0's three levels map directly
-            level_index = current_level_in_island
-        else:
-            # Placeholder: cycle through existing levels for other islands
-            level_index = current_level_in_island % 3
-
-        # Keep current_level in sync so LEVEL_THEMES indexing still works
-        current_level = level_index
-
-        platforms, enemies = create_level(level_index)
+        # Use the new (island, level) system
+        platforms, enemies = create_level(current_island, current_level_in_island)
         player = Player(50, 400)
         apply_powers(player, save_data)  # Give the player any powers they've unlocked
         camera = Camera()
-        bg = ParallaxBackground(level_index)
+
+        # Pick the right background theme
+        if current_island == 0:
+            bg = ParallaxBackground(current_level_in_island)
+        elif current_island == 1:
+            bg = ParallaxBackground("swamp")
+        else:
+            bg = ParallaxBackground(current_level_in_island % 3)
 
         # Spawn boss on the LAST level of each island
         if is_boss_level:
-            boss = WaspKing(2000, 540 - 90)  # In the boss arena
+            if current_island == 0:
+                boss = WaspKing(2000, 540 - 90)
+            elif current_island == 1:
+                boss = SwampBeetleLord(2000, 540 - 80)
+            else:
+                boss = WaspKing(2000, 540 - 90)  # Placeholder for future islands
         else:
             boss = None
         prev_boss_state = "idle"
@@ -249,7 +250,7 @@ def main():
                 if hover_channel and hover_channel.get_busy():
                     hover_channel.stop()
                     hover_channel = None
-            elif not is_boss_level and check_level_complete(player, enemies):
+            elif not is_boss_level and check_level_complete(player, enemies, current_island, current_level_in_island):
                 # Non-boss level complete — advance to next level in this island
                 save_data.complete_level(current_island, current_level_in_island)
                 save_data.save()
@@ -264,10 +265,17 @@ def main():
             draw_title_screen(screen)
         elif game_state == STATE_PLAYING:
             time_ms = pygame.time.get_ticks()
+            # Get the current theme from the new nested dict
+            cur_theme = LEVEL_THEMES.get(current_island, LEVEL_THEMES[0])
+            if current_level_in_island < len(cur_theme):
+                theme_entry = cur_theme[current_level_in_island]
+            else:
+                theme_entry = cur_theme[0]
+
             if bg:
                 bg.draw(screen, camera.x)
             else:
-                screen.fill(LEVEL_THEMES[current_level]["bg"])
+                screen.fill(theme_entry["bg"])
             for p in platforms:
                 p.draw(screen, camera.x, time_ms)
             for enemy in enemies:
@@ -276,7 +284,7 @@ def main():
                 boss.draw(screen, camera.x)
             coin_manager.draw(screen, camera.x)
             player.draw(screen, camera.x)
-            draw_hud(screen, player, LEVEL_THEMES[current_level]["name"], save_data.coins)
+            draw_hud(screen, player, theme_entry["name"], save_data.coins)
             if boss and boss.alive:
                 draw_boss_hp(screen, boss)
         elif game_state == STATE_ISLAND_MAP:
@@ -286,7 +294,13 @@ def main():
         elif game_state == STATE_GAME_OVER:
             draw_game_over(screen)
         elif game_state == STATE_LEVEL_TRANSITION:
-            draw_transition(screen, LEVEL_THEMES[current_level]["name"])
+            # Look up the NEXT level's name for the transition screen
+            next_theme = LEVEL_THEMES.get(current_island, LEVEL_THEMES[0])
+            if current_level_in_island < len(next_theme):
+                next_name = next_theme[current_level_in_island]["name"]
+            else:
+                next_name = next_theme[0]["name"]
+            draw_transition(screen, next_name)
         elif game_state == STATE_VICTORY:
             draw_victory(screen)
 

@@ -4,36 +4,36 @@ from src.settings import *
 
 
 class ParallaxBackground:
-    def __init__(self, level_num):
+    """Parallax scrolling background. Pass a level_num (0,1,2) or a theme
+    string like "swamp" to pick which sprite set to load."""
+
+    # Maps theme names to (sky_color, sprite_prefix)
+    THEMES = {
+        "garden": ((135, 200, 235), "bg_garden"),
+        "hive":   ((110, 80, 20),   "bg_hive"),
+        "tower":  ((60, 20, 20),    "bg_tower"),
+        "swamp":  ((40, 60, 35),    "bg_swamp"),
+    }
+
+    def __init__(self, level_or_theme):
         self.layers = []
-        self.level_num = level_num
-        if level_num == 0:
-            self.sky_color = (135, 200, 235)
-            try:
-                l1 = pygame.image.load(os.path.join("sprites", "bg_garden_1.png")).convert_alpha()
-                l2 = pygame.image.load(os.path.join("sprites", "bg_garden_2.png")).convert_alpha()
-                l3 = pygame.image.load(os.path.join("sprites", "bg_garden_3.png")).convert_alpha()
-                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
-            except Exception as e:
-                pass
-        elif level_num == 1:
-            self.sky_color = (110, 80, 20)
-            try:
-                l1 = pygame.image.load(os.path.join("sprites", "bg_hive_1.png")).convert_alpha()
-                l2 = pygame.image.load(os.path.join("sprites", "bg_hive_2.png")).convert_alpha()
-                l3 = pygame.image.load(os.path.join("sprites", "bg_hive_3.png")).convert_alpha()
-                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
-            except Exception as e:
-                pass
+
+        # If given a string, use it as a theme name directly
+        if isinstance(level_or_theme, str):
+            theme_key = level_or_theme
         else:
-            self.sky_color = (60, 20, 20)
-            try:
-                l1 = pygame.image.load(os.path.join("sprites", "bg_tower_1.png")).convert_alpha()
-                l2 = pygame.image.load(os.path.join("sprites", "bg_tower_2.png")).convert_alpha()
-                l3 = pygame.image.load(os.path.join("sprites", "bg_tower_3.png")).convert_alpha()
-                self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
-            except Exception as e:
-                pass
+            # Old-style numeric: 0=garden, 1=hive, 2+=tower
+            theme_key = {0: "garden", 1: "hive"}.get(level_or_theme, "tower")
+
+        sky, prefix = self.THEMES.get(theme_key, self.THEMES["garden"])
+        self.sky_color = sky
+        try:
+            l1 = pygame.image.load(os.path.join("sprites", f"{prefix}_1.png")).convert_alpha()
+            l2 = pygame.image.load(os.path.join("sprites", f"{prefix}_2.png")).convert_alpha()
+            l3 = pygame.image.load(os.path.join("sprites", f"{prefix}_3.png")).convert_alpha()
+            self.layers = [(l1, 0.15), (l2, 0.4), (l3, 0.7)]
+        except Exception:
+            pass
 
     def draw(self, screen, camera_x):
         screen.fill(self.sky_color)

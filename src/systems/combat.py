@@ -49,11 +49,21 @@ def handle_combat(player, enemies, boss=None):
                     player.rect.x += 40
                 player.vel_y = -10
                 hit_events.append("player_hurt")
-        # Shockwave damages player
+        # Shockwave damages player (supports single or dual shockwaves)
+        shockwave_hit = False
         if boss.shockwave and boss.shockwave_timer > 0:
             if player.rect.colliderect(boss.shockwave):
-                if player.take_damage(1):
-                    player.vel_y = -12
-                    hit_events.append("player_hurt")
+                shockwave_hit = True
+        # Check left/right shockwaves (SwampBeetleLord uses these)
+        if hasattr(boss, 'shockwave_left') and boss.shockwave_left and boss.shockwave_timer > 0:
+            if player.rect.colliderect(boss.shockwave_left):
+                shockwave_hit = True
+        if hasattr(boss, 'shockwave_right') and boss.shockwave_right and boss.shockwave_timer > 0:
+            if player.rect.colliderect(boss.shockwave_right):
+                shockwave_hit = True
+        if shockwave_hit:
+            if player.take_damage(1):
+                player.vel_y = -12
+                hit_events.append("player_hurt")
 
     return hit_events, death_positions
