@@ -283,6 +283,25 @@ def draw_hud(screen, player, level_name):
     screen.blit(text, (SCREEN_WIDTH - text.get_width() - 10, 10))
 
 
+def handle_combat(player, enemies):
+    # Player attack hits enemies
+    if player.attacking and player.attack_rect:
+        for enemy in enemies:
+            if enemy.alive and player.attack_rect.colliderect(enemy.rect):
+                enemy.take_damage(1)
+
+    # Enemies damage player on contact
+    for enemy in enemies:
+        if enemy.alive and player.rect.colliderect(enemy.rect):
+            if player.take_damage(1):
+                # Knockback: push player away from enemy
+                if player.rect.centerx < enemy.rect.centerx:
+                    player.rect.x -= 30
+                else:
+                    player.rect.x += 30
+                player.vel_y = -8  # Small bounce up
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -329,6 +348,9 @@ def main():
         # Update all enemies (movement, death timer)
         for enemy in enemies:
             enemy.update()
+
+        # Check for combat hits between player and enemies
+        handle_combat(player, enemies)
 
         # --- Drawing ---
         # Light blue sky background
