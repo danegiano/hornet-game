@@ -877,7 +877,7 @@ def main():
     boss = None
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss
+        nonlocal platforms, enemies, player, camera, boss, prev_boss_state, boss_music_started
         platforms, enemies = create_level(current_level)
         player = Player(50, 400)
         player.hp = PLAYER_MAX_HP
@@ -887,8 +887,12 @@ def main():
             boss = WaspKing(2000, 540 - 90)  # In the boss arena
         else:
             boss = None
+        prev_boss_state = "idle"
+        boss_music_started = False
 
     hover_channel = None
+    prev_boss_state = "idle"
+    boss_music_started = False
 
     running = True
     while running:
@@ -901,12 +905,15 @@ def main():
                         current_level = 0
                         start_level()
                         game_state = STATE_PLAYING
+                        play_music("level_music")
                     elif game_state == STATE_GAME_OVER:
                         start_level()
                         game_state = STATE_PLAYING
+                        play_music("level_music")
                     elif game_state == STATE_LEVEL_TRANSITION:
                         start_level()
                         game_state = STATE_PLAYING
+                        play_music("level_music")
                     elif game_state == STATE_VICTORY:
                         current_level = 0
                         game_state = STATE_TITLE
@@ -939,10 +946,23 @@ def main():
                     enemy.update()
             if boss and boss.alive:
                 boss.update(player, platforms)
+                # Boss attack sounds
+                if boss.state != prev_boss_state:
+                    if boss.state == "charge" and "boss_charge" in sounds:
+                        sounds["boss_charge"].play()
+                    elif boss.state == "slam" and "boss_slam" in sounds:
+                        sounds["boss_slam"].play()
+                    prev_boss_state = boss.state
                 # Add summoned flies to enemy list
                 if boss.summoned_flies:
                     enemies.extend(boss.summoned_flies)
                     boss.summoned_flies = []
+            # Switch to boss music when entering arena on level 3
+            if current_level == 2 and boss and boss.alive and not boss_music_started:
+                if player.rect.x > 1700:
+                    play_music("boss_music")
+                    boss_music_started = True
+
             combat_events = handle_combat(player, enemies, boss)
             for evt in combat_events:
                 if evt in sounds:
@@ -952,13 +972,24 @@ def main():
             # Check for death
             if player.hp <= 0:
                 game_state = STATE_GAME_OVER
+                stop_music()
+                if hover_channel and hover_channel.get_busy():
+                    hover_channel.stop()
+                    hover_channel = None
 
             # Check for level complete or boss defeat
             if current_level == 2 and boss and not boss.alive:
                 game_state = STATE_VICTORY
+                stop_music()
+                if hover_channel and hover_channel.get_busy():
+                    hover_channel.stop()
+                    hover_channel = None
             elif current_level < 2 and check_level_complete(player, enemies):
                 current_level += 1
                 game_state = STATE_LEVEL_TRANSITION
+                stop_music()
+                if "level_complete" in sounds:
+                    sounds["level_complete"].play()
 
         # Drawing
         if game_state == STATE_TITLE:
