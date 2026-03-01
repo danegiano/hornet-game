@@ -25,6 +25,11 @@ def draw_hud(screen, player, level_name, coins=0):
     coin_text = font.render(f"Coins: {coins}", True, (255, 220, 50))
     screen.blit(coin_text, (SCREEN_WIDTH - coin_text.get_width() - 10, 36))
 
+    # Poison indicator
+    if getattr(player, 'poisoned', False):
+        poison_text = font.render("POISONED", True, (0, 200, 0))
+        screen.blit(poison_text, (12, 48))
+
 
 def draw_boss_hp(screen, boss):
     bar_width = 300

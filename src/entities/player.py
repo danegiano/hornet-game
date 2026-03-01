@@ -77,10 +77,27 @@ class Player:
         self.shield_recharge_timer = 0
         self.shield_recharge_max = 300  # 5 seconds at 60fps to recharge
 
+        # Poison state
+        self.poisoned = False
+        self.poison_timer = 0          # total poison duration remaining (frames)
+        self.poison_tick_timer = 0     # countdown to next damage tick
+        self.poison_duration = 360     # 6 seconds at 60fps
+        self.poison_tick_rate = 120    # damage every 2 seconds
+
     def update(self, keys, platforms):
         # Invincibility timer
         if self.invincible_timer > 0:
             self.invincible_timer -= 1
+
+        # --- Poison damage over time ---
+        if self.poisoned:
+            self.poison_timer -= 1
+            self.poison_tick_timer -= 1
+            if self.poison_tick_timer <= 0:
+                self.hp -= 1  # Poison damage bypasses shield and invincibility
+                self.poison_tick_timer = self.poison_tick_rate
+            if self.poison_timer <= 0:
+                self.poisoned = False
 
         # --- Shield recharge ---
         if self.has_shield and not self.shield_active:
@@ -248,6 +265,12 @@ class Player:
             return True
         return False
 
+    def apply_poison(self):
+        """Apply or refresh poison. Doesn't stack — just resets timer."""
+        self.poisoned = True
+        self.poison_timer = self.poison_duration
+        self.poison_tick_timer = self.poison_tick_rate
+
     def start_attack(self):
         # Only start a new attack if we're not already attacking and cooldown is done
         if self.attack_cooldown <= 0 and not self.attacking:
@@ -300,6 +323,12 @@ class Player:
         spr_x = draw_rect.centerx - spr.get_width() // 2
         spr_y = draw_rect.centery - spr.get_height() // 2
         screen.blit(spr, (spr_x, spr_y))
+
+        # --- Poison tint ---
+        if self.poisoned:
+            poison_overlay = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            poison_overlay.fill((0, 180, 0, 60))
+            screen.blit(poison_overlay, draw_rect)
 
         # --- Shield bubble ---
         # Draw a semi-transparent blue circle around the player when shield is active
