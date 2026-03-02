@@ -11,6 +11,7 @@ class Enemy:
         self.color = color
         self.alive = True
         self.death_timer = 0  # Flash timer when killed
+        self.hurt_flash_timer = 0
 
         # --- Trait system ---
         self.traits = traits or []
@@ -50,6 +51,9 @@ class Enemy:
         # Armor flash countdown
         if self.armor_flash_timer > 0:
             self.armor_flash_timer -= 1
+        # Hurt flash countdown
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Ranged attack
         if self.has_trait("ranged") and player_x is not None:
@@ -94,6 +98,7 @@ class Enemy:
                         self.death_timer = 15
             return
         self.hp -= amount
+        self.hurt_flash_timer = 8
         if self.hp <= 0:
             self.alive = False
             self.death_timer = 15
@@ -134,10 +139,14 @@ class Wasp(Enemy):
         self.scale = 2
         self.spr0 = pygame.image.load(os.path.join("sprites", "wasp_yellow_0.png")).convert_alpha()
         self.spr1 = pygame.image.load(os.path.join("sprites", "wasp_yellow_1.png")).convert_alpha()
+        self.spr2 = pygame.image.load(os.path.join("sprites", "wasp_yellow_2.png")).convert_alpha()
         self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
         self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr2 = pygame.transform.scale(self.spr2, (self.spr2.get_width()*self.scale, self.spr2.get_height()*self.scale))
         self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
         self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+        self.spr2_flip = pygame.transform.flip(self.spr2, True, False)
+        self.player_x = None
 
         self.anim_t = 0
         self.anim_f = 0
@@ -149,6 +158,7 @@ class Wasp(Enemy):
             return
 
         self.update_traits(player_x, player_y)
+        self.player_x = player_x
 
         # Flap animation
         self.anim_t += 1
@@ -174,14 +184,17 @@ class Wasp(Enemy):
             return
 
         draw_rect = self.rect.move(-camera_x, 0)
-        if self.anim_f == 0:
-            spr = self.spr0
+        close_to_player = (self.player_x is not None and abs(self.rect.centerx - self.player_x) < 60)
+        if close_to_player:
+            spr      = self.spr2
+            spr_flip = self.spr2_flip
+        elif self.anim_f == 0:
+            spr      = self.spr0
             spr_flip = self.spr0_flip
         else:
-            spr = self.spr1
+            spr      = self.spr1
             spr_flip = self.spr1_flip
 
-        # Face direction based on movement
         spr = spr if self.moving_right else spr_flip
 
         sx = draw_rect.centerx - spr.get_width() // 2
@@ -194,6 +207,10 @@ class Wasp(Enemy):
             screen.blit(ghost, (sx, sy))
         else:
             screen.blit(spr, (sx, sy))
+            if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+                flash = pygame.Surface(spr.get_size(), pygame.SRCALPHA)
+                flash.fill((255, 255, 255, 180))
+                screen.blit(flash, (sx, sy), special_flags=pygame.BLEND_RGBA_ADD)
 
         # Armor outline
         if self.armor_hp > 0:
@@ -220,10 +237,14 @@ class Fly(Enemy):
         self.scale = 2
         self.spr0 = pygame.image.load(os.path.join("sprites", "fly_black_0.png")).convert_alpha()
         self.spr1 = pygame.image.load(os.path.join("sprites", "fly_black_1.png")).convert_alpha()
+        self.spr2 = pygame.image.load(os.path.join("sprites", "fly_black_2.png")).convert_alpha()
         self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
         self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr2 = pygame.transform.scale(self.spr2, (self.spr2.get_width()*self.scale, self.spr2.get_height()*self.scale))
         self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
         self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+        self.spr2_flip = pygame.transform.flip(self.spr2, True, False)
+        self.player_x = None
         self.anim_t = 0
         self.anim_f = 0
 
@@ -234,6 +255,7 @@ class Fly(Enemy):
             return
 
         self.update_traits(player_x, player_y)
+        self.player_x = player_x
 
         self.anim_t += 1
         if self.anim_t >= 4:
@@ -261,8 +283,16 @@ class Fly(Enemy):
             return
 
         draw_rect = self.rect.move(-camera_x, 0)
-        spr = self.spr0 if self.anim_f == 0 else self.spr1
-        spr_flip = self.spr0_flip if self.anim_f == 0 else self.spr1_flip
+        close_to_player = (self.player_x is not None and abs(self.rect.centerx - self.player_x) < 60)
+        if close_to_player:
+            spr      = self.spr2
+            spr_flip = self.spr2_flip
+        elif self.anim_f == 0:
+            spr      = self.spr0
+            spr_flip = self.spr0_flip
+        else:
+            spr      = self.spr1
+            spr_flip = self.spr1_flip
 
         spr = spr if self.moving_right else spr_flip
         sx = draw_rect.centerx - spr.get_width() // 2
@@ -275,6 +305,10 @@ class Fly(Enemy):
             screen.blit(ghost, (sx, sy))
         else:
             screen.blit(spr, (sx, sy))
+            if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+                flash = pygame.Surface(spr.get_size(), pygame.SRCALPHA)
+                flash.fill((255, 255, 255, 180))
+                screen.blit(flash, (sx, sy), special_flags=pygame.BLEND_RGBA_ADD)
 
         # Armor outline
         if self.armor_hp > 0:
@@ -303,10 +337,13 @@ class Spider(Enemy):
         self.scale = 2
         self.spr0 = pygame.image.load(os.path.join("sprites", "spider_brown_0.png")).convert_alpha()
         self.spr1 = pygame.image.load(os.path.join("sprites", "spider_brown_1.png")).convert_alpha()
+        self.spr2 = pygame.image.load(os.path.join("sprites", "spider_brown_2.png")).convert_alpha()
         self.spr0 = pygame.transform.scale(self.spr0, (self.spr0.get_width()*self.scale, self.spr0.get_height()*self.scale))
         self.spr1 = pygame.transform.scale(self.spr1, (self.spr1.get_width()*self.scale, self.spr1.get_height()*self.scale))
+        self.spr2 = pygame.transform.scale(self.spr2, (self.spr2.get_width()*self.scale, self.spr2.get_height()*self.scale))
         self.spr0_flip = pygame.transform.flip(self.spr0, True, False)
         self.spr1_flip = pygame.transform.flip(self.spr1, True, False)
+        self.spr2_flip = pygame.transform.flip(self.spr2, True, False)
         self.anim_t = 0
         self.anim_f = 0
         self.moving_right = True
@@ -371,8 +408,15 @@ class Spider(Enemy):
             return
 
         draw_rect = self.rect.move(-camera_x, 0)
-        spr = self.spr0 if self.anim_f == 0 else self.spr1
-        spr_flip = self.spr0_flip if self.anim_f == 0 else self.spr1_flip
+        if self.lunging:
+            spr      = self.spr2
+            spr_flip = self.spr2_flip
+        elif self.anim_f == 0:
+            spr      = self.spr0
+            spr_flip = self.spr0_flip
+        else:
+            spr      = self.spr1
+            spr_flip = self.spr1_flip
 
         spr = spr if self.moving_right else spr_flip
         sx = draw_rect.centerx - spr.get_width() // 2
@@ -385,6 +429,10 @@ class Spider(Enemy):
             screen.blit(ghost, (sx, sy))
         else:
             screen.blit(spr, (sx, sy))
+            if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+                flash = pygame.Surface(spr.get_size(), pygame.SRCALPHA)
+                flash.fill((255, 255, 255, 180))
+                screen.blit(flash, (sx, sy), special_flags=pygame.BLEND_RGBA_ADD)
 
         # Armor outline
         if self.armor_hp > 0:
