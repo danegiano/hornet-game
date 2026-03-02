@@ -1,6 +1,8 @@
 import pygame
 import os
 import sys
+import random
+import math
 from src.settings import *
 from src.entities.player import Player
 from src.entities.enemies import Wasp, Fly, Spider
@@ -15,6 +17,36 @@ from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
 from src.ui.island_map import IslandMap
 from src.ui.shop import Shop
+
+
+class Particle:
+    """A small colored dot that flies outward and fades when an enemy dies."""
+    def __init__(self, x, y, color):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(2, 6)
+        self.x = float(x)
+        self.y = float(y)
+        self.dx = math.cos(angle) * speed
+        self.dy = math.sin(angle) * speed - 2
+        self.color = color
+        self.lifetime = random.randint(15, 25)
+        self.max_life = self.lifetime
+        self.size = random.randint(2, 4)
+
+    def update(self):
+        self.x += self.dx
+        self.y += self.dy
+        self.dy += 0.3
+        self.lifetime -= 1
+
+    def draw(self, screen, camera_x):
+        if self.lifetime <= 0:
+            return
+        alpha = int(255 * self.lifetime / self.max_life)
+        size = max(1, int(self.size * self.lifetime / self.max_life))
+        surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*self.color, alpha), (size, size), size)
+        screen.blit(surf, (int(self.x - camera_x) - size, int(self.y) - size))
 
 
 def apply_powers(player, save_data):
@@ -78,6 +110,7 @@ def main():
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
     enemies = []
+    particles = []
     player = None
     camera = None
     boss = None
@@ -86,8 +119,9 @@ def main():
     coin_manager = CoinManager()
 
     def start_level():
-        nonlocal platforms, enemies, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
+        nonlocal platforms, enemies, particles, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
         coin_manager = CoinManager()
+        particles = []
 
         island_info = ISLAND_DATA[current_island]
         is_boss_level = (current_level_in_island == island_info["levels"] - 1)
@@ -271,9 +305,19 @@ def main():
             for evt in combat_events:
                 if evt in sounds:
                     sounds[evt].play()
+            # Spawn particles where enemies just died
+            for enemy in enemies:
+                if not enemy.alive and enemy.death_timer == 14:
+                    color = enemy.color[:3] if len(enemy.color) > 3 else enemy.color
+                    for _ in range(6):
+                        particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, color))
             # Spawn coins where enemies died
             for dx, dy, count in death_positions:
                 coin_manager.spawn(dx, dy, count)
+            # Update and prune particles
+            particles = [p for p in particles if p.lifetime > 0]
+            for p in particles:
+                p.update()
             # Update coins and collect any that reached the player
             collected = coin_manager.update(player.rect)
             if collected > 0:
@@ -338,6 +382,8 @@ def main():
             if boss and boss.alive:
                 boss.draw(screen, camera.x)
             coin_manager.draw(screen, camera.x)
+            for p in particles:
+                p.draw(screen, camera.x)
             player.draw(screen, camera.x)
             draw_hud(screen, player, theme_entry["name"], save_data.coins)
             if boss and boss.alive:
