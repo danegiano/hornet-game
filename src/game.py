@@ -180,17 +180,7 @@ def main():
                 if result is not None:
                     if isinstance(result, tuple) and result[0] == "play":
                         current_island = result[1]
-                        # Start at the next unbeaten level so returning players
-                        # reach the boss without replaying earlier levels
-                        completed = save_data.completed_levels.get(str(current_island), [])
-                        island_total = ISLAND_DATA[current_island]["levels"]
-                        next_level = 0
-                        for lvl in range(island_total):
-                            if lvl in completed:
-                                next_level = lvl + 1
-                            else:
-                                break
-                        current_level_in_island = min(next_level, island_total - 1)
+                        current_level_in_island = 0
                         start_level()
                         game_state = STATE_PLAYING
                         play_music("level_music")
