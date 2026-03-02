@@ -169,6 +169,23 @@ def main():
     prev_boss_state = "idle"
     boss_music_started = False
 
+    # --- Developer mode ---
+    bot_mode = False          # F1 toggles bot on/off
+    bot_jump_timer = 0        # counts down between bot jumps
+    bot_attack_timer = 0      # counts down between bot attacks
+
+    class FakeKeys:
+        """Pretends to be pygame's key state but returns what the bot wants."""
+        def __init__(self, right=False, left=False, up=False):
+            self._right = right
+            self._left = left
+            self._up = up
+        def __getitem__(self, key):
+            if key in (pygame.K_RIGHT, pygame.K_d): return self._right
+            if key in (pygame.K_LEFT,  pygame.K_a): return self._left
+            if key in (pygame.K_UP, pygame.K_w, pygame.K_SPACE): return self._up
+            return False
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -218,9 +235,52 @@ def main():
                     player.start_attack()
                     if "attack" in sounds:
                         sounds["attack"].play()
+                # --- Dev keys ---
+                if event.key == pygame.K_F1:
+                    bot_mode = not bot_mode   # toggle bot on/off
+                if event.key == pygame.K_F2:
+                    # Restart — drop back to title screen
+                    game_state = STATE_TITLE
+                    bot_mode = False
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
 
         if game_state == STATE_PLAYING:
-            keys = pygame.key.get_pressed()
+            if bot_mode:
+                # --- Bot AI ---
+                bot_jump_timer -= 1
+                bot_attack_timer -= 1
+
+                # Find nearest live target (enemy or boss)
+                targets = [e for e in enemies if e.alive]
+                if boss and boss.alive:
+                    targets.append(boss)
+                nearest = min(targets, key=lambda t: abs(t.rect.centerx - player.rect.centerx)) if targets else None
+
+                move_right, move_left, do_jump = True, False, False
+                if nearest:
+                    dx = nearest.rect.centerx - player.rect.centerx
+                    move_right = dx > 0
+                    move_left  = dx < 0
+                    # Jump if target is above
+                    if nearest.rect.centery < player.rect.centery - 40 and player.on_ground:
+                        do_jump = True
+                    # Attack when close enough
+                    if abs(dx) < 90 and bot_attack_timer <= 0:
+                        player.start_attack()
+                        if "attack" in sounds:
+                            sounds["attack"].play()
+                        bot_attack_timer = 20
+                # Periodic jump to avoid getting stuck on platforms
+                if bot_jump_timer <= 0 and player.on_ground:
+                    do_jump = True
+                    bot_jump_timer = random.randint(50, 110)
+
+                keys = FakeKeys(right=move_right, left=move_left, up=do_jump)
+            else:
+                keys = pygame.key.get_pressed()
             player.update(keys, platforms)
 
             # Jump sound — fires the frame the player leaves the ground
@@ -386,6 +446,10 @@ def main():
                 p.draw(screen, camera.x)
             player.draw(screen, camera.x)
             draw_hud(screen, player, theme_entry["name"], save_data.coins)
+            if bot_mode:
+                font_dev = pygame.font.Font(None, 26)
+                dev_text = font_dev.render("BOT MODE  F1=off  F2=restart", True, (255, 255, 0))
+                screen.blit(dev_text, (10, SCREEN_HEIGHT - 28))
             if boss and boss.alive:
                 draw_boss_hp(screen, boss)
                 # Flashing "BOSS FIGHT" hint so player knows they need to defeat the boss
