@@ -240,12 +240,14 @@ class SwampBeetleLord:
             self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
+        # Only use the platform the boss spawned on — not the whole level!
         if self.arena_left is None:
-            lefts = [p.rect.left for p in arena_platforms]
-            rights = [p.rect.right for p in arena_platforms]
-            if lefts:
-                self.arena_left = min(lefts)
-                self.arena_right = max(rights)
+            spawn_plats = [p for p in arena_platforms
+                           if p.rect.left <= self.rect.centerx <= p.rect.right]
+            if spawn_plats:
+                main = max(spawn_plats, key=lambda p: p.rect.width)
+                self.arena_left = main.rect.left
+                self.arena_right = main.rect.right
             else:
                 self.arena_left = 0
                 self.arena_right = 2700
@@ -494,12 +496,14 @@ class CrystalSpiderQueen:
             self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
+        # Only use the platform the boss spawned on — not the whole level!
         if self.arena_left is None:
-            lefts = [p.rect.left for p in arena_platforms]
-            rights = [p.rect.right for p in arena_platforms]
-            if lefts:
-                self.arena_left = min(lefts)
-                self.arena_right = max(rights)
+            spawn_plats = [p for p in arena_platforms
+                           if p.rect.left <= self.rect.centerx <= p.rect.right]
+            if spawn_plats:
+                main = max(spawn_plats, key=lambda p: p.rect.width)
+                self.arena_left = main.rect.left
+                self.arena_right = main.rect.right
             else:
                 self.arena_left = 0
                 self.arena_right = 2800
@@ -847,12 +851,14 @@ class FireMoth:
             self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
+        # Only use the platform the boss spawned on — not the whole level!
         if self.arena_left is None:
-            lefts = [p.rect.left for p in arena_platforms]
-            rights = [p.rect.right for p in arena_platforms]
-            if lefts:
-                self.arena_left = min(lefts)
-                self.arena_right = max(rights)
+            spawn_plats = [p for p in arena_platforms
+                           if p.rect.left <= self.rect.centerx <= p.rect.right]
+            if spawn_plats:
+                main = max(spawn_plats, key=lambda p: p.rect.width)
+                self.arena_left = main.rect.left
+                self.arena_right = main.rect.right
             else:
                 self.arena_left = 0
                 self.arena_right = 3250
@@ -1296,12 +1302,14 @@ class ShadowHornet:
             self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
+        # Only use the platform the boss spawned on — not the whole level!
         if self.arena_left is None:
-            lefts = [p.rect.left for p in arena_platforms]
-            rights = [p.rect.right for p in arena_platforms]
-            if lefts:
-                self.arena_left = min(lefts)
-                self.arena_right = max(rights)
+            spawn_plats = [p for p in arena_platforms
+                           if p.rect.left <= self.rect.centerx <= p.rect.right]
+            if spawn_plats:
+                main = max(spawn_plats, key=lambda p: p.rect.width)
+                self.arena_left = main.rect.left
+                self.arena_right = main.rect.right
             else:
                 self.arena_left = 0
                 self.arena_right = 3500
