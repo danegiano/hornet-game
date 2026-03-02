@@ -149,17 +149,17 @@ def main():
         # Spawn boss on the LAST level of each island
         if is_boss_level:
             if current_island == 0:
-                boss = WaspKing(2000, 540 - 90)
+                boss = WaspKing(1800, 540 - 90)
             elif current_island == 1:
-                boss = SwampBeetleLord(2000, 540 - 80)
+                boss = SwampBeetleLord(1800, 540 - 80)
             elif current_island == 2:
-                boss = CrystalSpiderQueen(2100, 350)  # Floats in the arena
+                boss = CrystalSpiderQueen(1900, 350)  # Floats in the arena
             elif current_island == 3:
-                boss = FireMoth(2500, 300)  # Flies around the volcano arena
+                boss = FireMoth(2000, 300)  # Flies around the volcano arena
             elif current_island == 4:
-                boss = ShadowHornet(2800, 350)  # The final boss!
+                boss = ShadowHornet(2200, 350)  # The final boss!
             else:
-                boss = WaspKing(2000, 540 - 90)  # Placeholder for future islands
+                boss = WaspKing(1800, 540 - 90)  # Placeholder for future islands
         else:
             boss = None
         prev_boss_state = "idle"
@@ -398,6 +398,11 @@ def main():
             draw_hud(screen, player, theme_entry["name"], save_data.coins)
             if boss and boss.alive:
                 draw_boss_hp(screen, boss)
+                # Flashing "BOSS FIGHT" hint so player knows they need to defeat the boss
+                if (pygame.time.get_ticks() // 600) % 2 == 0:
+                    font_hint = pygame.font.Font(None, 30)
+                    hint = font_hint.render("DEFEAT THE BOSS TO WIN!", True, (255, 80, 80))
+                    screen.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, 60))
         elif game_state == STATE_ISLAND_MAP:
             island_map.draw(screen)
         elif game_state == "shop":
