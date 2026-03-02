@@ -36,7 +36,10 @@ def draw_boss_hp(screen, boss):
     bar_x = SCREEN_WIDTH // 2 - bar_width // 2
     pygame.draw.rect(screen, (80, 80, 80), (bar_x - 2, 10, bar_width + 4, 22))
     hp_width = int(bar_width * boss.hp / boss.max_hp)
-    pygame.draw.rect(screen, ORANGE, (bar_x, 12, hp_width, 18))
+    # HP bar flashes red when boss is low
+    bar_color = (220, 50, 50) if boss.hp <= boss.max_hp // 4 else ORANGE
+    pygame.draw.rect(screen, bar_color, (bar_x, 12, hp_width, 18))
     font = pygame.font.Font(None, 24)
-    label = font.render("WASP KING", True, WHITE)
+    boss_name = getattr(boss, "name", "BOSS").upper()
+    label = font.render(boss_name, True, WHITE)
     screen.blit(label, (SCREEN_WIDTH // 2 - label.get_width() // 2, 36))

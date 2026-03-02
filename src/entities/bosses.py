@@ -1589,6 +1589,12 @@ class ShadowHornet:
             slash_surf.fill((150, 50, 200, 180))
             screen.blit(slash_surf, sh_rect)
 
+        # Hurt flash — white overlay blinks when taking damage
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2 and self.teleport_visible:
+            flash = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, 180))
+            screen.blit(flash, draw_rect.topleft, special_flags=pygame.BLEND_RGBA_ADD)
+
     def _draw_hornet_body(self, surface, rect, alpha=255, is_clone=False):
         """Draw the shadow hornet body on a given surface at the given rect.
         Used for both the real boss and clones."""
