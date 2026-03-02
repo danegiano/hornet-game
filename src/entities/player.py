@@ -163,7 +163,7 @@ class Player:
             self.anim_mode = "attack"
         elif self.dashing:
             self.anim_mode = "run"  # reuse run sprite for dash
-        elif not self.on_ground and not self.attacking:
+        elif not self.on_ground:
             self.anim_mode = "jump"
         elif moving and self.on_ground:
             self.anim_mode = "run"
