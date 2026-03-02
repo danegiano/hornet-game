@@ -7,11 +7,13 @@ class Player:
     def __init__(self, x, y):
         # Load player sprites once
         self.sprite_scale = 2  # draw sprite bigger on screen
-        self.spr_idle0 = pygame.image.load(os.path.join("sprites", "hornet_idle_0.png")).convert_alpha()
-        self.spr_idle1 = pygame.image.load(os.path.join("sprites", "hornet_idle_1.png")).convert_alpha()
+        self.spr_idle0   = pygame.image.load(os.path.join("sprites", "hornet_idle_0.png")).convert_alpha()
+        self.spr_idle1   = pygame.image.load(os.path.join("sprites", "hornet_idle_1.png")).convert_alpha()
         self.spr_attack0 = pygame.image.load(os.path.join("sprites", "hornet_attack_0.png")).convert_alpha()
-        self.spr_run0 = pygame.image.load(os.path.join("sprites", "hornet_run_0.png")).convert_alpha()
-        self.spr_run1 = pygame.image.load(os.path.join("sprites", "hornet_run_1.png")).convert_alpha()
+        self.spr_run0    = pygame.image.load(os.path.join("sprites", "hornet_run_0.png")).convert_alpha()
+        self.spr_run1    = pygame.image.load(os.path.join("sprites", "hornet_run_1.png")).convert_alpha()
+        self.spr_jump0   = pygame.image.load(os.path.join("sprites", "hornet_jump_0.png")).convert_alpha()
+        self.spr_hurt0   = pygame.image.load(os.path.join("sprites", "hornet_hurt_0.png")).convert_alpha()
         self.spr_idle0_flip = pygame.transform.flip(self.spr_idle0, True, False)
         self.spr_idle1_flip = pygame.transform.flip(self.spr_idle1, True, False)
         self.spr_attack0_flip = pygame.transform.flip(self.spr_attack0, True, False)
@@ -27,9 +29,16 @@ class Player:
         self.spr_attack0_flip = pygame.transform.scale(self.spr_attack0_flip, (self.spr_attack0_flip.get_width()*self.sprite_scale, self.spr_attack0_flip.get_height()*self.sprite_scale))
         self.spr_run0_flip = pygame.transform.scale(self.spr_run0_flip, (self.spr_run0_flip.get_width()*self.sprite_scale, self.spr_run0_flip.get_height()*self.sprite_scale))
         self.spr_run1_flip = pygame.transform.scale(self.spr_run1_flip, (self.spr_run1_flip.get_width()*self.sprite_scale, self.spr_run1_flip.get_height()*self.sprite_scale))
+        self.spr_jump0_flip = pygame.transform.flip(self.spr_jump0, True, False)
+        self.spr_hurt0_flip = pygame.transform.flip(self.spr_hurt0, True, False)
+        self.spr_jump0   = pygame.transform.scale(self.spr_jump0,  (self.spr_jump0.get_width()*self.sprite_scale,  self.spr_jump0.get_height()*self.sprite_scale))
+        self.spr_jump0_flip = pygame.transform.scale(self.spr_jump0_flip, (self.spr_jump0_flip.get_width()*self.sprite_scale, self.spr_jump0_flip.get_height()*self.sprite_scale))
+        self.spr_hurt0   = pygame.transform.scale(self.spr_hurt0,  (self.spr_hurt0.get_width()*self.sprite_scale,  self.spr_hurt0.get_height()*self.sprite_scale))
+        self.spr_hurt0_flip = pygame.transform.scale(self.spr_hurt0_flip, (self.spr_hurt0_flip.get_width()*self.sprite_scale, self.spr_hurt0_flip.get_height()*self.sprite_scale))
         self.anim_timer = 0
         self.anim_frame = 0
         self.anim_mode = "idle"
+        self.hurt_flash_timer = 0
 
         # rect is the rectangle that represents the player's body
         self.rect = pygame.Rect(x, y, PLAYER_WIDTH, PLAYER_HEIGHT)
@@ -154,6 +163,8 @@ class Player:
             self.anim_mode = "attack"
         elif self.dashing:
             self.anim_mode = "run"  # reuse run sprite for dash
+        elif not self.on_ground and not self.attacking:
+            self.anim_mode = "jump"
         elif moving and self.on_ground:
             self.anim_mode = "run"
         else:
@@ -228,6 +239,8 @@ class Player:
         if self.rect.top > SCREEN_HEIGHT + 50:
             self.hp = 0
 
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
         # Attack cooldown — counts down every frame until you can attack again
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
@@ -262,6 +275,7 @@ class Player:
         if self.invincible_timer <= 0:
             self.hp -= amount
             self.invincible_timer = INVINCIBILITY_FRAMES
+            self.hurt_flash_timer = 12
             return True
         return False
 
@@ -308,8 +322,12 @@ class Player:
                 screen.blit(trail_surface, (draw_rect.x, draw_rect.y))
 
         # Draw animated sprite
-        if self.anim_mode == "attack":
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+            spr = self.spr_hurt0 if self.facing_right else self.spr_hurt0_flip
+        elif self.anim_mode == "attack":
             spr = self.spr_attack0 if self.facing_right else self.spr_attack0_flip
+        elif self.anim_mode == "jump":
+            spr = self.spr_jump0 if self.facing_right else self.spr_jump0_flip
         elif self.anim_mode == "run":
             if self.anim_frame == 0:
                 spr = self.spr_run0 if self.facing_right else self.spr_run0_flip
