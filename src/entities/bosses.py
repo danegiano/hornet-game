@@ -9,11 +9,13 @@ from src.entities.enemies import Fly, Wasp, Spider
 class WaspKing:
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 120, 90)  # 3x player size
+        self.name = "Wasp King"
         self.hp = 10
         self.max_hp = 10
         self.color = ORANGE
         self.alive = True
         self.vel_y = 0
+        self.hurt_flash_timer = 0
 
         self.spr0 = pygame.image.load(os.path.join("sprites", "king_0.png")).convert_alpha()
         self.spr1 = pygame.image.load(os.path.join("sprites", "king_1.png")).convert_alpha()
@@ -43,6 +45,7 @@ class WaspKing:
 
     def take_damage(self, amount):
         self.hp -= amount
+        self.hurt_flash_timer = 12
         self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
         if self.hp <= 0:
             self.alive = False
@@ -50,6 +53,9 @@ class WaspKing:
     def update(self, player, arena_platforms):
         if not self.alive:
             return
+
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Animation
         self.anim_t += 1
@@ -145,6 +151,12 @@ class WaspKing:
 
         screen.blit(spr, draw_rect.topleft)
 
+        # Hurt flash — white overlay blinks when taking damage
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+            flash = pygame.Surface(spr.get_size(), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, 180))
+            screen.blit(flash, draw_rect.topleft, special_flags=pygame.BLEND_RGBA_ADD)
+
         # Shockwave
         if self.shockwave and self.shockwave_timer > 0:
             sw = self.shockwave.move(-camera_x, 0)
@@ -164,12 +176,14 @@ class SwampBeetleLord:
 
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 100, 80)
+        self.name = "Sludge Baron"
         self.hp = 15
         self.max_hp = 15
         self.color = (40, 80, 30)       # Dark green
         self.alive = True
         self.vel_y = 0
         self.vel_x = 0
+        self.hurt_flash_timer = 0
 
         # Attack pattern state
         self.state = "idle"
@@ -193,7 +207,15 @@ class SwampBeetleLord:
         # Summon (same interface name as WaspKing so game.py can use it)
         self.summoned_flies = []
 
-        # Animation (simple rectangle for now — no sprite)
+        # Sprites
+        try:
+            self.spr0 = pygame.image.load(os.path.join("sprites", "sludge_baron_0.png")).convert_alpha()
+            self.spr1 = pygame.image.load(os.path.join("sprites", "sludge_baron_1.png")).convert_alpha()
+            self.has_sprites = True
+        except Exception:
+            self.has_sprites = False
+
+        # Animation
         self.anim_t = 0
         self.anim_f = 0
         self.facing_right = False
@@ -204,6 +226,7 @@ class SwampBeetleLord:
 
     def take_damage(self, amount):
         self.hp -= amount
+        self.hurt_flash_timer = 12
         # Gets faster as HP drops
         self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
         if self.hp <= 0:
@@ -212,6 +235,9 @@ class SwampBeetleLord:
     def update(self, player, arena_platforms):
         if not self.alive:
             return
+
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
         if self.arena_left is None:
@@ -355,47 +381,22 @@ class SwampBeetleLord:
             return
         draw_rect = self.rect.move(-camera_x, 0)
 
-        # Body — a chunky dark green rectangle
-        body_color = self.color
-        # Flash lighter when rolling
-        if self.state == "roll":
-            body_color = (60, 120, 40)
-
-        pygame.draw.rect(screen, body_color, draw_rect)
-        # Dark border
-        pygame.draw.rect(screen, (20, 40, 15), draw_rect, 3)
-
-        # Shell pattern — two lines across the back
-        mid_y = draw_rect.y + draw_rect.height // 3
-        pygame.draw.line(screen, (30, 60, 20),
-                         (draw_rect.x + 5, mid_y),
-                         (draw_rect.right - 5, mid_y), 2)
-        mid_y2 = draw_rect.y + 2 * draw_rect.height // 3
-        pygame.draw.line(screen, (30, 60, 20),
-                         (draw_rect.x + 5, mid_y2),
-                         (draw_rect.right - 5, mid_y2), 2)
-
-        # Eyes
-        eye_y = draw_rect.y + 15
-        if self.facing_right:
-            pygame.draw.circle(screen, (255, 50, 50),
-                               (draw_rect.right - 20, eye_y), 6)
-            pygame.draw.circle(screen, WHITE,
-                               (draw_rect.right - 18, eye_y - 2), 2)
+        if self.has_sprites:
+            spr = self.spr1 if self.state == "roll" else self.spr0
+            if self.facing_right:
+                spr = pygame.transform.flip(spr, True, False)
+            screen.blit(spr, draw_rect.topleft)
         else:
-            pygame.draw.circle(screen, (255, 50, 50),
-                               (draw_rect.x + 20, eye_y), 6)
-            pygame.draw.circle(screen, WHITE,
-                               (draw_rect.x + 22, eye_y - 2), 2)
+            # Fallback: colored rectangle
+            body_color = (60, 120, 40) if self.state == "roll" else self.color
+            pygame.draw.rect(screen, body_color, draw_rect)
+            pygame.draw.rect(screen, (20, 40, 15), draw_rect, 3)
 
-        # Legs (little lines on the bottom)
-        leg_y = draw_rect.bottom
-        for lx_off in [15, 35, 55, 75]:
-            # Alternate leg positions for animation
-            offset = 3 if (self.anim_f == 0) == (lx_off % 30 < 15) else -3
-            pygame.draw.line(screen, (30, 60, 20),
-                             (draw_rect.x + lx_off, leg_y),
-                             (draw_rect.x + lx_off + offset, leg_y + 10), 3)
+        # Hurt flash — white overlay blinks when taking damage
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+            flash = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, 180))
+            screen.blit(flash, draw_rect.topleft, special_flags=pygame.BLEND_RGBA_ADD)
 
         # Shockwaves
         if self.shockwave_timer > 0:
@@ -424,12 +425,14 @@ class CrystalSpiderQueen:
 
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 90, 90)
+        self.name = "Crystal Widow"
         self.hp = 22
         self.max_hp = 22
         self.color = (120, 50, 180)  # Purple crystal spider
         self.alive = True
         self.vel_y = 0
         self.vel_x = 0
+        self.hurt_flash_timer = 0
 
         # Attack pattern state
         self.state = "idle"
@@ -477,6 +480,7 @@ class CrystalSpiderQueen:
 
     def take_damage(self, amount):
         self.hp -= amount
+        self.hurt_flash_timer = 12
         # Gets faster as HP drops
         self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
         if self.hp <= 0:
@@ -485,6 +489,9 @@ class CrystalSpiderQueen:
     def update(self, player, arena_platforms):
         if not self.alive:
             return
+
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
         if self.arena_left is None:
@@ -745,6 +752,12 @@ class CrystalSpiderQueen:
                                  (trect.x + wx, trect.y),
                                  (trect.x + trect.width // 2, trect.bottom), 1)
 
+        # Hurt flash — white overlay blinks when taking damage
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+            flash = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, 180))
+            screen.blit(flash, draw_rect.topleft, special_flags=pygame.BLEND_RGBA_ADD)
+
         # Shockwave
         if self.shockwave and self.shockwave_timer > 0:
             sw = self.shockwave.move(-camera_x, 0)
@@ -765,12 +778,14 @@ class FireMoth:
 
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 80, 70)
+        self.name = "Inferno Empress"
         self.hp = 33
         self.max_hp = 33
         self.color = (255, 120, 30)  # Fiery orange
         self.alive = True
         self.vel_y = 0
         self.vel_x = 0
+        self.hurt_flash_timer = 0
 
         # Attack pattern state
         self.state = "idle"
@@ -818,6 +833,7 @@ class FireMoth:
 
     def take_damage(self, amount):
         self.hp -= amount
+        self.hurt_flash_timer = 12
         # Gets faster and meaner as HP drops
         self.speed_multiplier = 1.0 + (1.0 - self.hp / self.max_hp) * 0.8
         if self.hp <= 0:
@@ -826,6 +842,9 @@ class FireMoth:
     def update(self, player, arena_platforms):
         if not self.alive:
             return
+
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
         if self.arena_left is None:
@@ -1169,6 +1188,12 @@ class FireMoth:
                              (wr.x, gap_screen_y + gap_h),
                              (wr.right, gap_screen_y + gap_h), 2)
 
+        # Hurt flash — white overlay blinks when taking damage
+        if self.hurt_flash_timer > 0 and self.hurt_flash_timer % 4 < 2:
+            flash = pygame.Surface((draw_rect.width, draw_rect.height), pygame.SRCALPHA)
+            flash.fill((255, 255, 255, 180))
+            screen.blit(flash, draw_rect.topleft, special_flags=pygame.BLEND_RGBA_ADD)
+
 
 class ShadowHornet:
     """FINAL BOSS of Island 4: The Shadow Fortress.
@@ -1184,12 +1209,14 @@ class ShadowHornet:
 
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 64, 64)
+        self.name = "Shadow Phantom"
         self.hp = 50
         self.max_hp = 50
         self.color = (40, 0, 60)        # Deep shadow purple
         self.alive = True
         self.vel_y = 0
         self.vel_x = 0
+        self.hurt_flash_timer = 0
 
         # Attack pattern state
         self.state = "idle"
@@ -1247,6 +1274,7 @@ class ShadowHornet:
 
     def take_damage(self, amount):
         self.hp -= amount
+        self.hurt_flash_timer = 12
         # Enrage: gets faster as HP drops
         hp_ratio = self.hp / self.max_hp
         if hp_ratio <= 0.25:
@@ -1263,6 +1291,9 @@ class ShadowHornet:
     def update(self, player, arena_platforms):
         if not self.alive:
             return
+
+        if self.hurt_flash_timer > 0:
+            self.hurt_flash_timer -= 1
 
         # Figure out arena bounds from platforms (once)
         if self.arena_left is None:
