@@ -384,8 +384,12 @@ def main():
                 save_data.add_coins(collected)
             camera.update(player)
 
+            # Bot is invincible — keep HP topped up every frame
+            if bot_mode:
+                player.hp = save_data.get_max_hp()
+
             # Check for death
-            if player.hp <= 0:
+            if not bot_mode and player.hp <= 0:
                 game_state = STATE_GAME_OVER
                 stop_music()
                 if hover_channel and hover_channel.get_busy():
