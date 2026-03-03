@@ -17,6 +17,7 @@ from src.ui.hud import draw_hud, draw_boss_hp
 from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, draw_victory
 from src.ui.island_map import IslandMap
 from src.ui.shop import Shop
+from src.ui.circus import CircusLobby, CircusFail, CircusWin
 
 
 class Particle:
@@ -107,6 +108,12 @@ def main():
     island_map = None
     shop = None
 
+    # Circus state
+    circus_lobby = None
+    circus_fail_screen = None
+    circus_win_screen = None
+    circus_boss_index = 0   # which circus boss we're on (0-4)
+
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
     enemies = []
@@ -165,9 +172,63 @@ def main():
         prev_boss_state = "idle"
         boss_music_started = False
 
+    def start_circus_boss():
+        """Set up a circus boss fight. Applies difficulty multipliers."""
+        nonlocal platforms, enemies, particles, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
+        coin_manager = CoinManager()
+        particles = []
+        enemies = []
+
+        island_idx = CIRCUS_BOSS_ORDER[circus_boss_index]
+
+        # Use the boss level layout of that island
+        island_info = ISLAND_DATA[island_idx]
+        boss_level = island_info["levels"] - 1
+        platforms, _ = create_level(island_idx, boss_level)
+
+        player = Player(50, 400)
+        apply_powers(player, save_data)
+        camera = Camera()
+
+        if island_idx == 0:
+            bg = ParallaxBackground(boss_level)
+        elif island_idx == 1:
+            bg = ParallaxBackground("swamp")
+        elif island_idx == 2:
+            bg = ParallaxBackground("cave")
+        elif island_idx == 3:
+            bg = ParallaxBackground("volcano")
+        else:
+            bg = ParallaxBackground("shadow")
+
+        if island_idx == 0:
+            boss = WaspKing(1800, 540 - 90)
+        elif island_idx == 1:
+            boss = SwampBeetleLord(1800, 540 - 80)
+        elif island_idx == 2:
+            boss = CrystalSpiderQueen(1900, 350)
+        elif island_idx == 3:
+            boss = FireMoth(2000, 300)
+        else:
+            boss = ShadowHornet(2200, 350)
+
+        # Apply circus difficulty multipliers
+        boss.max_hp = int(boss.max_hp * CIRCUS_HP_MULT)
+        boss.hp     = boss.max_hp
+        if hasattr(boss, 'charge_speed'):
+            boss.charge_speed = int(boss.charge_speed * CIRCUS_SPEED_MULT)
+        boss._circus_damage_add = CIRCUS_DAMAGE_ADD
+
+        prev_boss_state = "idle"
+        boss_music_started = False
+
     hover_channel = None
     prev_boss_state = "idle"
     boss_music_started = False
+
+    # --- Last safe ground position (used by Totem of Undying) ---
+    last_safe_x = 50
+    last_safe_y = 400
 
     # --- Developer mode ---
     bot_mode = False          # F1 toggles bot on/off
@@ -205,6 +266,9 @@ def main():
                         shop = Shop(save_data)
                         game_state = "shop"
                         continue
+                    elif result == "circus":
+                        circus_lobby = CircusLobby()
+                        game_state = STATE_CIRCUS
 
             if game_state == "shop" and shop:
                 result = shop.handle_input(event)
@@ -212,6 +276,38 @@ def main():
                     island_map = IslandMap(save_data)
                     game_state = STATE_ISLAND_MAP
                     continue
+
+            if game_state == STATE_CIRCUS and circus_lobby:
+                result = circus_lobby.handle_input(event)
+                if result == "start":
+                    circus_boss_index = 0
+                    start_circus_boss()
+                    game_state = STATE_CIRCUS_BOSS
+                    play_music("level_music")
+                elif result == "back":
+                    island_map = IslandMap(save_data)
+                    game_state = STATE_ISLAND_MAP
+
+            if game_state == STATE_CIRCUS_FAIL and circus_fail_screen:
+                result = circus_fail_screen.handle_input(event)
+                if result == "retry":
+                    circus_boss_index = 0
+                    start_circus_boss()
+                    game_state = STATE_CIRCUS_BOSS
+                    play_music("level_music")
+                elif result == "back":
+                    island_map = IslandMap(save_data)
+                    game_state = STATE_ISLAND_MAP
+
+            if game_state == STATE_CIRCUS_WIN and circus_win_screen:
+                result = circus_win_screen.handle_input(event)
+                if result == "enter_portal":
+                    save_data.unlock_hallucination()
+                    island_map = IslandMap(save_data)
+                    game_state = STATE_ISLAND_MAP
+                elif result == "back":
+                    island_map = IslandMap(save_data)
+                    game_state = STATE_ISLAND_MAP
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
@@ -231,7 +327,7 @@ def main():
                         # Victory -> back to island map
                         island_map = IslandMap(save_data)
                         game_state = STATE_ISLAND_MAP
-                if event.key in (pygame.K_z, pygame.K_x) and game_state == STATE_PLAYING:
+                if event.key in (pygame.K_z, pygame.K_x) and game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
                     player.start_attack()
                     if "attack" in sounds:
                         sounds["attack"].play()
@@ -247,7 +343,7 @@ def main():
                         hover_channel.stop()
                         hover_channel = None
 
-        if game_state == STATE_PLAYING:
+        if game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
             if bot_mode:
                 # --- Bot AI ---
                 bot_jump_timer -= 1
@@ -384,6 +480,11 @@ def main():
                 save_data.add_coins(collected)
             camera.update(player)
 
+            # Track last safe position for Totem of Undying respawn
+            if player.on_ground:
+                last_safe_x = player.rect.x
+                last_safe_y = player.rect.y
+
             # Bot is invincible — keep HP topped up every frame
             if bot_mode:
                 player.hp = save_data.get_max_hp()
@@ -395,11 +496,42 @@ def main():
 
             # Check for death
             if not bot_mode and player.hp <= 0:
-                game_state = STATE_GAME_OVER
-                stop_music()
-                if hover_channel and hover_channel.get_busy():
-                    hover_channel.stop()
-                    hover_channel = None
+                if game_state == STATE_CIRCUS_BOSS:
+                    # In circus, dying goes to fail screen (no totem second chances)
+                    circus_fail_screen = CircusFail(circus_boss_index)
+                    game_state = STATE_CIRCUS_FAIL
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
+                elif save_data.use_totem():
+                    save_data.save()
+                    player.rect.x = last_safe_x
+                    player.rect.y = last_safe_y
+                    player.vel_y = 0
+                    player.hp = save_data.get_max_hp()
+                    player.invincibility_timer = 120  # 2 seconds safe after respawn
+                else:
+                    game_state = STATE_GAME_OVER
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
+
+            # Circus boss defeated — advance to next or show win screen
+            if game_state == STATE_CIRCUS_BOSS and boss and not boss.alive:
+                if circus_boss_index < 4:
+                    circus_boss_index += 1
+                    start_circus_boss()
+                    # Stay in STATE_CIRCUS_BOSS for next boss
+                else:
+                    # Beat all 5!
+                    circus_win_screen = CircusWin()
+                    game_state = STATE_CIRCUS_WIN
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
 
             # Check for level complete or boss defeat
             island_info = ISLAND_DATA[current_island]
@@ -412,6 +544,8 @@ def main():
                 if power:
                     save_data.unlock_power(power)
                 save_data.max_island_unlocked = min(current_island + 1, 4)
+                if current_island == 4:
+                    save_data.unlock_circus()
                 save_data.save()
                 game_state = STATE_VICTORY
                 stop_music()
@@ -431,10 +565,13 @@ def main():
         # Drawing
         if game_state == STATE_TITLE:
             draw_title_screen(screen)
-        elif game_state == STATE_PLAYING:
+        elif game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
             time_ms = pygame.time.get_ticks()
             # Get the current theme from the new nested dict
-            cur_theme = LEVEL_THEMES.get(current_island, LEVEL_THEMES[0])
+            if game_state == STATE_CIRCUS_BOSS:
+                cur_theme = LEVEL_THEMES.get(CIRCUS_BOSS_ORDER[circus_boss_index], LEVEL_THEMES[0])
+            else:
+                cur_theme = LEVEL_THEMES.get(current_island, LEVEL_THEMES[0])
             if current_level_in_island < len(cur_theme):
                 theme_entry = cur_theme[current_level_in_island]
             else:
@@ -454,7 +591,7 @@ def main():
             for p in particles:
                 p.draw(screen, camera.x)
             player.draw(screen, camera.x)
-            draw_hud(screen, player, theme_entry["name"], save_data.coins)
+            draw_hud(screen, player, theme_entry["name"], save_data.coins, save_data.totems)
             if bot_mode:
                 font_dev = pygame.font.Font(None, 26)
                 dev_text = font_dev.render("BOT MODE  F1=off  F2=restart", True, (255, 255, 0))
@@ -482,6 +619,12 @@ def main():
             draw_transition(screen, next_name)
         elif game_state == STATE_VICTORY:
             draw_victory(screen, current_island)
+        elif game_state == STATE_CIRCUS and circus_lobby:
+            circus_lobby.draw(screen)
+        elif game_state == STATE_CIRCUS_FAIL and circus_fail_screen:
+            circus_fail_screen.draw(screen)
+        elif game_state == STATE_CIRCUS_WIN and circus_win_screen:
+            circus_win_screen.draw(screen)
 
         pygame.display.flip()
         clock.tick(FPS)
