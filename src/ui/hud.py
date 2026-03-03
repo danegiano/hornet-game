@@ -2,7 +2,7 @@ import pygame
 from src.settings import *
 
 
-def draw_hud(screen, player, level_name, coins=0):
+def draw_hud(screen, player, level_name, coins=0, totems=0):
     # Health bar background
     pygame.draw.rect(screen, (80, 80, 80), (10, 10, 104, 16))
     # Health bar fill
@@ -24,6 +24,11 @@ def draw_hud(screen, player, level_name, coins=0):
     # Coin counter
     coin_text = font.render(f"Coins: {coins}", True, (255, 220, 50))
     screen.blit(coin_text, (SCREEN_WIDTH - coin_text.get_width() - 10, 36))
+
+    # Totem counter (only when player has at least one)
+    if totems > 0:
+        totem_text = font.render(f"Totems: {totems}", True, (255, 180, 80))
+        screen.blit(totem_text, (SCREEN_WIDTH - totem_text.get_width() - 10, 60))
 
     # Poison indicator
     if getattr(player, 'poisoned', False):
