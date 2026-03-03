@@ -31,12 +31,15 @@ class IslandMap:
             return None
 
         if event.key == pygame.K_RIGHT:
-            if self.selected < min(self.save_data.max_island_unlocked, 4):
+            max_sel = 5 if self.save_data.circus_unlocked else min(self.save_data.max_island_unlocked, 4)
+            if self.selected < max_sel:
                 self.selected += 1
         elif event.key == pygame.K_LEFT:
             if self.selected > 0:
                 self.selected -= 1
         elif event.key == pygame.K_RETURN:
+            if self.selected == 5:
+                return "circus"
             return ("play", self.selected)
         elif event.key == pygame.K_s:
             return "shop"
@@ -117,6 +120,36 @@ class IslandMap:
                 arrow_y = iy - height - 40 + bounce
                 # Draw a little yellow triangle pointing down
                 pygame.draw.polygon(screen, (255, 220, 50), [
+                    (ix, arrow_y + 15),
+                    (ix - 10, arrow_y),
+                    (ix + 10, arrow_y),
+                ])
+
+        # Draw The Circus (slot 5) if unlocked
+        if self.save_data.circus_unlocked:
+            ix = start_x + 5 * island_spacing
+            iy = 340
+            height = 90
+            color = (220, 80, 80)  # circus red
+            points = [
+                (ix - 40, iy + 20),
+                (ix - 30, iy - height // 2),
+                (ix - 10, iy - height),
+                (ix + 10, iy - height + 10),
+                (ix + 30, iy - height // 2 - 5),
+                (ix + 40, iy + 20),
+            ]
+            pygame.draw.polygon(screen, color, points)
+            pygame.draw.polygon(screen, (160, 40, 40), points, 3)
+            name_t = self.font_small.render("THE CIRCUS", True, WHITE)
+            screen.blit(name_t, (ix - name_t.get_width() // 2, iy + 30))
+            sub_t = self.font_small.render("BOSS RUSH", True, (220, 180, 180))
+            screen.blit(sub_t, (ix - sub_t.get_width() // 2, iy + 50))
+
+            if self.selected == 5:
+                bounce = math.sin(self.wave_offset * 3) * 5
+                arrow_y = iy - height - 40 + bounce
+                pygame.draw.polygon(screen, (255, 80, 80), [
                     (ix, arrow_y + 15),
                     (ix - 10, arrow_y),
                     (ix + 10, arrow_y),
