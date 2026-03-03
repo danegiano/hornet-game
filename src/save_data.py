@@ -118,10 +118,11 @@ class SaveData:
         """Buy up to 10 lives for Hallucination Land."""
         if self.hallucination_lives >= 10:
             return False
-        if self.coins < cost:
-            return False
         to_buy = min(amount, 10 - self.hallucination_lives)
-        self.coins -= cost * to_buy
+        total_cost = cost * to_buy
+        if self.coins < total_cost:
+            return False
+        self.coins -= total_cost
         self.hallucination_lives += to_buy
         return True
 
