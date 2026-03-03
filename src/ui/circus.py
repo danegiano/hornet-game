@@ -75,7 +75,7 @@ class CircusLobby:
             by += 26
 
         # Prompt
-        blink = int(self.wave * 3) % 2 == 0
+        blink = int(self.wave) % 2 == 0
         if blink:
             prompt = self.font_med.render("ENTER to begin  |  ESC to go back", True, (255, 200, 200))
             screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, SCREEN_HEIGHT - 50))
@@ -162,5 +162,5 @@ class CircusWin:
         msg = self.font_med.render("The portal to Hallucination Land is open.", True, (180, 150, 220))
         screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, 210))
 
-        prompt = self.font_med.render("ENTER to enter the portal", True, (200, 180, 255))
+        prompt = self.font_med.render("ENTER to enter portal  |  ESC to go back", True, (200, 180, 255))
         screen.blit(prompt, (SCREEN_WIDTH // 2 - prompt.get_width() // 2, SCREEN_HEIGHT - 80))

@@ -25,6 +25,7 @@ class IslandMap:
         """Handle input. Returns:
            - ("play", island_index) to start playing an island
            - "shop" to open the shop
+           - "circus" to enter The Circus boss rush
            - None for no action
         """
         if event.type != pygame.KEYDOWN:
