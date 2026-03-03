@@ -49,6 +49,7 @@ class Player:
         # facing_right tracks which way the player is looking
         self.facing_right = True
         # hover_fuel is how many frames of hover the player has left
+        self.hover_max = HOVER_MAX    # can be overridden by shadow wings power
         self.hover_fuel = HOVER_MAX
         # is_hovering is True while the player is actively slowing their fall
         self.is_hovering = False
@@ -92,6 +93,15 @@ class Player:
         self.poison_tick_timer = 0     # countdown to next damage tick
         self.poison_duration = 360     # 6 seconds at 60fps
         self.poison_tick_rate = 120    # damage every 2 seconds
+
+        # Shadow power flags (set by apply_powers when unlocked)
+        self.shadow_form = False
+        self.shadow_stinger = False
+        self.shadow_dash = False
+        self.has_shadow_veil = False
+        self.shadow_veil_active = False
+        self.shadow_veil_timer = 0      # frames remaining while veil is active
+        self.shadow_veil_cooldown = 0   # frames before veil can be used again
 
     def update(self, keys, platforms):
         # Invincibility timer
@@ -188,6 +198,15 @@ class Player:
         if self.rect.left < 0:
             self.rect.left = 0
 
+        # Shadow veil timer
+        if self.shadow_veil_active:
+            self.shadow_veil_timer -= 1
+            if self.shadow_veil_timer <= 0:
+                self.shadow_veil_active = False
+                self.shadow_veil_cooldown = 1800  # 30 seconds at 60fps
+        elif self.shadow_veil_cooldown > 0:
+            self.shadow_veil_cooldown -= 1
+
         # --- Jump ---
         self.just_jumped = False
         if jump_pressed and self.on_ground:
@@ -229,7 +248,7 @@ class Player:
                     self.rect.bottom = platform.rect.top
                     self.vel_y = 0
                     self.on_ground = True
-                    self.hover_fuel = HOVER_MAX  # Refill hover fuel on landing
+                    self.hover_fuel = self.hover_max  # Refill hover fuel on landing
                     self.can_double_jump = True   # Reset double jump on landing
                 elif self.vel_y < 0:  # Jumping up into the bottom of a platform
                     self.rect.top = platform.rect.bottom
@@ -262,6 +281,13 @@ class Player:
                 self.attack_rect.y = self.rect.top - 5
 
     def take_damage(self, amount):
+        # Shadow form: take half damage always
+        if getattr(self, 'shadow_form', False):
+            amount = max(1, amount // 2)
+        # Shadow veil: completely untouchable while active
+        if getattr(self, 'shadow_veil_active', False):
+            return False
+
         # Dash makes you invincible — no damage at all
         if self.dash_invincible:
             return False

@@ -18,6 +18,9 @@ from src.ui.menus import draw_title_screen, draw_game_over, draw_transition, dra
 from src.ui.island_map import IslandMap
 from src.ui.shop import Shop
 from src.ui.circus import CircusLobby, CircusFail, CircusWin
+from src.ui.hallucination_map import HallucinationMap
+from src.ui.hallucination_shop import HallucinationShop
+from src.world.hallucination_levels import create_hallucination_level
 
 
 class Particle:
@@ -62,6 +65,20 @@ def apply_powers(player, save_data):
         player.stinger_damage = 2
     # Set HP based on upgrades the player has bought
     player.hp = save_data.get_max_hp()
+
+    # Shadow powers (unlocked in Hallucination Land)
+    from src.systems.powers import SHADOW_WINGS, SHADOW_FORM, SHADOW_STINGER, SHADOW_VEIL, SHADOW_DASH
+    if save_data.has_shadow_power(SHADOW_WINGS):
+        player.hover_max = 99999    # effectively infinite hover
+        player.hover_fuel = 99999
+    if save_data.has_shadow_power(SHADOW_FORM):
+        player.shadow_form = True   # take half damage (handled in take_damage)
+    if save_data.has_shadow_power(SHADOW_STINGER):
+        player.shadow_stinger = True  # flag checked in combat
+    if save_data.has_shadow_power(SHADOW_VEIL):
+        player.has_shadow_veil = True  # adds active ability (V key)
+    if save_data.has_shadow_power(SHADOW_DASH):
+        player.shadow_dash = True   # dash is damage-immune
 
 
 def main():
@@ -113,6 +130,16 @@ def main():
     circus_fail_screen = None
     circus_win_screen = None
     circus_boss_index = 0   # which circus boss we're on (0-4)
+
+    # Hallucination Land state
+    hallucination_map_ui = None
+    hallucination_shop_ui = None
+    current_hallucination_island = 0
+    current_hallucination_level  = 0
+
+    # Achievement popup
+    achievement_popup_timer = 0
+    achievement_popup_text  = ""
 
     # Initialize game objects (will be reset when starting/restarting)
     platforms = []
@@ -222,6 +249,38 @@ def main():
         prev_boss_state = "idle"
         boss_music_started = False
 
+    def start_hallucination_level():
+        """Set up a Hallucination Land level."""
+        nonlocal platforms, enemies, particles, player, camera, boss, bg, prev_boss_state, boss_music_started, coin_manager
+        coin_manager = CoinManager()
+        particles = []
+
+        platforms, enemies = create_hallucination_level(current_hallucination_island, current_hallucination_level)
+        player = Player(50, 400)
+        apply_powers(player, save_data)
+        camera = Camera()
+        bg = ParallaxBackground("shadow")  # dark bg for all hallucination levels
+
+        # Every level in hallucination land has a boss
+        island_idx = current_hallucination_island
+        if island_idx == 0:
+            boss = WaspKing(1800, 540 - 90)
+        elif island_idx == 1:
+            boss = SwampBeetleLord(1800, 540 - 80)
+        elif island_idx == 2:
+            boss = CrystalSpiderQueen(1900, 350)
+        elif island_idx == 3:
+            boss = FireMoth(2000, 300)
+        else:
+            boss = ShadowHornet(2200, 350)
+
+        # Hallucination bosses are extra tough
+        boss.max_hp = int(boss.max_hp * 2.0)
+        boss.hp = boss.max_hp
+
+        prev_boss_state = "idle"
+        boss_music_started = False
+
     hover_channel = None
     prev_boss_state = "idle"
     boss_music_started = False
@@ -303,11 +362,30 @@ def main():
                 result = circus_win_screen.handle_input(event)
                 if result == "enter_portal":
                     save_data.unlock_hallucination()
-                    island_map = IslandMap(save_data)
-                    game_state = STATE_ISLAND_MAP
+                    hallucination_map_ui = HallucinationMap(save_data)
+                    game_state = STATE_HALLUCINATION_MAP
                 elif result == "back":
                     island_map = IslandMap(save_data)
                     game_state = STATE_ISLAND_MAP
+
+            if game_state == STATE_HALLUCINATION_MAP and hallucination_map_ui:
+                result = hallucination_map_ui.handle_input(event)
+                if result is not None:
+                    if isinstance(result, tuple) and result[0] == "play":
+                        current_hallucination_island = result[1]
+                        current_hallucination_level  = 0
+                        start_hallucination_level()
+                        game_state = STATE_HALLUCINATION_PLAYING
+                        play_music("level_music")
+                    elif isinstance(result, tuple) and result[0] == "shop":
+                        hallucination_shop_ui = HallucinationShop(save_data, result[1])
+                        game_state = STATE_HALLUCINATION_SHOP
+
+            if game_state == STATE_HALLUCINATION_SHOP and hallucination_shop_ui:
+                result = hallucination_shop_ui.handle_input(event)
+                if result == "close":
+                    hallucination_map_ui = HallucinationMap(save_data)
+                    game_state = STATE_HALLUCINATION_MAP
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
@@ -327,10 +405,15 @@ def main():
                         # Victory -> back to island map
                         island_map = IslandMap(save_data)
                         game_state = STATE_ISLAND_MAP
-                if event.key in (pygame.K_z, pygame.K_x) and game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
+                if event.key in (pygame.K_z, pygame.K_x) and game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS, STATE_HALLUCINATION_PLAYING):
                     player.start_attack()
                     if "attack" in sounds:
                         sounds["attack"].play()
+                if event.key == pygame.K_v and game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS, STATE_HALLUCINATION_PLAYING):
+                    if player and getattr(player, 'has_shadow_veil', False):
+                        if not player.shadow_veil_active and player.shadow_veil_cooldown == 0:
+                            player.shadow_veil_active = True
+                            player.shadow_veil_timer = 180  # 3 seconds
                 # --- Dev keys ---
                 if event.key == pygame.K_F1:
                     bot_mode = not bot_mode   # toggle bot on/off
@@ -343,7 +426,7 @@ def main():
                         hover_channel.stop()
                         hover_channel = None
 
-        if game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
+        if game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS, STATE_HALLUCINATION_PLAYING):
             if bot_mode:
                 # --- Bot AI ---
                 bot_jump_timer -= 1
@@ -504,6 +587,18 @@ def main():
                     if hover_channel and hover_channel.get_busy():
                         hover_channel.stop()
                         hover_channel = None
+                elif game_state == STATE_HALLUCINATION_PLAYING:
+                    if save_data.use_hallucination_life():
+                        save_data.save()
+                        start_hallucination_level()  # respawn at level start
+                    else:
+                        # Out of lives — back to hallucination map
+                        hallucination_map_ui = HallucinationMap(save_data)
+                        game_state = STATE_HALLUCINATION_MAP
+                        stop_music()
+                        if hover_channel and hover_channel.get_busy():
+                            hover_channel.stop()
+                            hover_channel = None
                 elif save_data.use_totem():
                     save_data.save()
                     player.rect.x = last_safe_x
@@ -546,6 +641,8 @@ def main():
                 save_data.max_island_unlocked = min(current_island + 1, 4)
                 if current_island == 4:
                     save_data.unlock_circus()
+                    achievement_popup_text  = "ACHIEVEMENT: THE CIRCUS IS OPEN!"
+                    achievement_popup_timer = 240  # 4 seconds
                 save_data.save()
                 game_state = STATE_VICTORY
                 stop_music()
@@ -562,18 +659,44 @@ def main():
                 if "level_complete" in sounds:
                     sounds["level_complete"].play()
 
+            # Hallucination Land: boss defeated — advance level or return to map
+            if game_state == STATE_HALLUCINATION_PLAYING and boss and not boss.alive:
+                if current_hallucination_level < 3:
+                    current_hallucination_level += 1
+                    start_hallucination_level()
+                else:
+                    # Finished this hallucination island
+                    if current_hallucination_island < 4:
+                        save_data.hallucination_island = max(
+                            save_data.hallucination_island,
+                            current_hallucination_island + 1
+                        )
+                        save_data.save()
+                    hallucination_map_ui = HallucinationMap(save_data)
+                    game_state = STATE_HALLUCINATION_MAP
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
+
         # Drawing
         if game_state == STATE_TITLE:
             draw_title_screen(screen)
-        elif game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS):
+        elif game_state in (STATE_PLAYING, STATE_CIRCUS_BOSS, STATE_HALLUCINATION_PLAYING):
             time_ms = pygame.time.get_ticks()
             # Get the current theme from the new nested dict
             if game_state == STATE_CIRCUS_BOSS:
                 cur_theme = LEVEL_THEMES.get(CIRCUS_BOSS_ORDER[circus_boss_index], LEVEL_THEMES[0])
+            elif game_state == STATE_HALLUCINATION_PLAYING:
+                cur_theme = HALLUCINATION_LEVEL_THEMES.get(current_hallucination_island, HALLUCINATION_LEVEL_THEMES[0])
             else:
                 cur_theme = LEVEL_THEMES.get(current_island, LEVEL_THEMES[0])
-            if current_level_in_island < len(cur_theme):
-                theme_entry = cur_theme[current_level_in_island]
+            if game_state == STATE_HALLUCINATION_PLAYING:
+                level_idx_for_theme = current_hallucination_level
+            else:
+                level_idx_for_theme = current_level_in_island
+            if level_idx_for_theme < len(cur_theme):
+                theme_entry = cur_theme[level_idx_for_theme]
             else:
                 theme_entry = cur_theme[0]
 
@@ -625,6 +748,20 @@ def main():
             circus_fail_screen.draw(screen)
         elif game_state == STATE_CIRCUS_WIN and circus_win_screen:
             circus_win_screen.draw(screen)
+        elif game_state == STATE_HALLUCINATION_MAP and hallucination_map_ui:
+            hallucination_map_ui.draw(screen)
+        elif game_state == STATE_HALLUCINATION_SHOP and hallucination_shop_ui:
+            hallucination_shop_ui.draw(screen)
+
+        # Achievement popup overlay
+        if achievement_popup_timer > 0:
+            achievement_popup_timer -= 1
+            popup_font = pygame.font.Font(None, 28)
+            popup_surf = popup_font.render(achievement_popup_text, True, (255, 220, 50))
+            popup_bg = pygame.Surface((popup_surf.get_width() + 20, 40), pygame.SRCALPHA)
+            popup_bg.fill((0, 0, 0, 180))
+            screen.blit(popup_bg, (SCREEN_WIDTH//2 - popup_bg.get_width()//2, SCREEN_HEIGHT - 70))
+            screen.blit(popup_surf, (SCREEN_WIDTH//2 - popup_surf.get_width()//2, SCREEN_HEIGHT - 60))
 
         pygame.display.flip()
         clock.tick(FPS)
