@@ -10,6 +10,7 @@ class IslandMap:
         self.save_data = save_data
         self.selected = 0
         self.wave_offset = 0
+        self.scroll_x = 0  # camera offset for scrolling
         self.font_big = None
         self.font_med = None
         self.font_small = None
@@ -73,11 +74,25 @@ class IslandMap:
         wave_points.append((0, SCREEN_HEIGHT))
         pygame.draw.polygon(screen, (30, 90, 170), wave_points)
 
-        # Draw islands
+        # Draw islands (with horizontal scrolling)
         island_spacing = 150
         start_x = 80
+
+        # Smoothly scroll camera so selected island stays visible
+        selected_x = start_x + self.selected * island_spacing
+        # Target scroll keeps selected island near the center of the screen
+        target_scroll = selected_x - SCREEN_WIDTH // 2
+        # Figure out the rightmost island position
+        max_island_count = 6 if self.save_data.circus_unlocked else len(ISLAND_DATA)
+        max_scroll = max(0, start_x + (max_island_count - 1) * island_spacing - SCREEN_WIDTH + 120)
+        target_scroll = max(0, min(target_scroll, max_scroll))
+        # Smooth camera movement
+        self.scroll_x += (target_scroll - self.scroll_x) * 0.15
+
+        scroll = int(self.scroll_x)  # pixel offset for camera
+
         for i, island in enumerate(ISLAND_DATA):
-            ix = start_x + i * island_spacing
+            ix = start_x + i * island_spacing - scroll
             iy = 340  # base y for islands
 
             # Island landmass (a bumpy triangle shape)
@@ -128,7 +143,7 @@ class IslandMap:
 
         # Draw The Circus (slot 5) if unlocked
         if self.save_data.circus_unlocked:
-            ix = start_x + 5 * island_spacing
+            ix = start_x + 5 * island_spacing - scroll
             iy = 340
             height = 90
             color = (220, 80, 80)  # circus red

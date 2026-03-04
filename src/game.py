@@ -628,36 +628,37 @@ def main():
                         hover_channel.stop()
                         hover_channel = None
 
-            # Check for level complete or boss defeat
-            island_info = ISLAND_DATA[current_island]
-            is_boss_level = (current_level_in_island == island_info["levels"] - 1)
+            # Check for level complete or boss defeat (only during regular play)
+            if game_state == STATE_PLAYING:
+                island_info = ISLAND_DATA[current_island]
+                is_boss_level = (current_level_in_island == island_info["levels"] - 1)
 
-            if is_boss_level and boss and not boss.alive:
-                # Boss defeated! Save progress, grant power, unlock next island
-                save_data.complete_level(current_island, current_level_in_island)
-                power = ISLAND_POWER.get(current_island)
-                if power:
-                    save_data.unlock_power(power)
-                save_data.max_island_unlocked = min(current_island + 1, 4)
-                if current_island == 4:
-                    save_data.unlock_circus()
-                    achievement_popup_text  = "ACHIEVEMENT: THE CIRCUS IS OPEN!"
-                    achievement_popup_timer = 240  # 4 seconds
-                save_data.save()
-                game_state = STATE_VICTORY
-                stop_music()
-                if hover_channel and hover_channel.get_busy():
-                    hover_channel.stop()
-                    hover_channel = None
-            elif not is_boss_level and check_level_complete(player, enemies, current_island, current_level_in_island):
-                # Non-boss level complete — advance to next level in this island
-                save_data.complete_level(current_island, current_level_in_island)
-                save_data.save()
-                current_level_in_island += 1
-                game_state = STATE_LEVEL_TRANSITION
-                stop_music()
-                if "level_complete" in sounds:
-                    sounds["level_complete"].play()
+                if is_boss_level and boss and not boss.alive:
+                    # Boss defeated! Save progress, grant power, unlock next island
+                    save_data.complete_level(current_island, current_level_in_island)
+                    power = ISLAND_POWER.get(current_island)
+                    if power:
+                        save_data.unlock_power(power)
+                    save_data.max_island_unlocked = min(current_island + 1, 4)
+                    if current_island == 4:
+                        save_data.unlock_circus()
+                        achievement_popup_text  = "ACHIEVEMENT: THE CIRCUS IS OPEN!"
+                        achievement_popup_timer = 240  # 4 seconds
+                    save_data.save()
+                    game_state = STATE_VICTORY
+                    stop_music()
+                    if hover_channel and hover_channel.get_busy():
+                        hover_channel.stop()
+                        hover_channel = None
+                elif not is_boss_level and check_level_complete(player, enemies, current_island, current_level_in_island):
+                    # Non-boss level complete — advance to next level in this island
+                    save_data.complete_level(current_island, current_level_in_island)
+                    save_data.save()
+                    current_level_in_island += 1
+                    game_state = STATE_LEVEL_TRANSITION
+                    stop_music()
+                    if "level_complete" in sounds:
+                        sounds["level_complete"].play()
 
             # Hallucination Land: boss defeated — advance level or return to map
             if game_state == STATE_HALLUCINATION_PLAYING and boss and not boss.alive:
