@@ -214,8 +214,15 @@ def main():
         platforms, _ = create_level(island_idx, boss_level)
 
         # In the circus, spawn player right next to the boss arena
-        # (no enemies to fight along the way, so skip the empty walk)
-        player = Player(1600, 400)
+        # Find a platform near x=1600 and place player on top of it
+        spawn_x = 1600
+        spawn_y = 200  # default high up so player falls to a platform
+        for p in sorted(platforms, key=lambda p: abs(p.rect.centerx - spawn_x)):
+            if abs(p.rect.centerx - spawn_x) < 300:
+                spawn_x = p.rect.centerx
+                spawn_y = p.rect.top - 50  # on top of the platform
+                break
+        player = Player(spawn_x, spawn_y)
         apply_powers(player, save_data)
         camera = Camera()
 
