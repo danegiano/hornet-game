@@ -389,6 +389,7 @@ def main():
                     elif isinstance(result, tuple) and result[0] == "shop":
                         hallucination_shop_ui = HallucinationShop(save_data, result[1])
                         game_state = STATE_HALLUCINATION_SHOP
+                        continue  # Don't let the same S key close the shop instantly
 
             if game_state == STATE_HALLUCINATION_SHOP and hallucination_shop_ui:
                 result = hallucination_shop_ui.handle_input(event)
