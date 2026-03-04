@@ -213,7 +213,9 @@ def main():
         boss_level = island_info["levels"] - 1
         platforms, _ = create_level(island_idx, boss_level)
 
-        player = Player(50, 400)
+        # In the circus, spawn player right next to the boss arena
+        # (no enemies to fight along the way, so skip the empty walk)
+        player = Player(1600, 400)
         apply_powers(player, save_data)
         camera = Camera()
 
@@ -247,7 +249,7 @@ def main():
         boss._circus_damage_add = CIRCUS_DAMAGE_ADD
 
         prev_boss_state = "idle"
-        boss_music_started = False
+        boss_music_started = True  # Player starts in the arena, boss music plays right away
 
     def start_hallucination_level():
         """Set up a Hallucination Land level."""
